@@ -127,6 +127,24 @@ export const TicketCard: React.FC<TicketCardProps> = ({
         <h3 style={{ margin: '12px 0' }}>{event?.name || 'Loading...'}</h3>
 
         <div className="info-item" style={{ marginBottom: '12px' }}>
+          <div className="info-label">Ticket ID</div>
+          <div 
+            className="info-value" 
+            style={{ 
+              fontFamily: 'monospace', 
+              fontSize: '11px',
+              wordBreak: 'break-all',
+              background: '#f7fafc',
+              padding: '6px 8px',
+              borderRadius: '4px',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            {ticket.id}
+          </div>
+        </div>
+
+        <div className="info-item" style={{ marginBottom: '12px' }}>
           <div className="info-label">Số vé</div>
           <div className="info-value">#{ticket.ticketNumber}</div>
         </div>
@@ -153,9 +171,14 @@ export const TicketCard: React.FC<TicketCardProps> = ({
               </div>
             )}
 
-            {isOrganizer && onCheckIn && (
-              <button className="button button-secondary" onClick={onCheckIn} style={{ width: '100%' }}>
-                ✓ Check-in vé này
+            {/* Cả organizer và ticket owner đều có thể check-in */}
+            {onCheckIn && (
+              <button 
+                className="button button-secondary" 
+                onClick={onCheckIn} 
+                style={{ width: '100%', marginBottom: '8px' }}
+              >
+                ✓ {isOrganizer ? 'Check-in vé này' : 'Tự check-in'}
               </button>
             )}
 
@@ -165,7 +188,7 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 onClick={onSellBack} 
                 style={{ 
                   width: '100%', 
-                  marginTop: '12px',
+                  marginTop: '8px',
                   background: '#ed8936',
                 }}
               >

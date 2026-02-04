@@ -121,6 +121,13 @@ module dynamic_ticketing::dynamic_ticket {
         timestamp: u64,
     }
 
+    public struct EventCancelled has copy, drop {
+        event_id: ID,
+        organizer: address,
+        refunded_amount: u64,
+        timestamp: u64,
+    }
+
     // ==================== Init Function ====================
     
     fun init(otw: DYNAMIC_TICKET, ctx: &mut TxContext) {
@@ -246,14 +253,20 @@ module dynamic_ticketing::dynamic_ticket {
     // ==================== Check-in Logic ====================
     
     /// Check-in vé tại sự kiện - chuyển state sang CHECKED_IN
+    /// Có thể được gọi bởi: organizer (check-in cho người khác) hoặc ticket owner (self check-in)
     public entry fun check_in_ticket(
         ticket: &mut Ticket,
         event_config: &EventConfig,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // Chỉ organizer mới có thể check-in
-        assert!(tx_context::sender(ctx) == event_config.organizer, ENotEventOrganizer);
+        let sender = tx_context::sender(ctx);
+        
+        // Cho phép cả organizer và ticket owner check-in
+        assert!(
+            sender == event_config.organizer || sender == ticket.owner, 
+            ENotEventOrganizer
+        );
         
         // Kiểm tra vé chưa sử dụng
         assert!(ticket.state == STATE_PENDING, ETicketAlreadyUsed);
@@ -314,6 +327,35 @@ module dynamic_ticketing::dynamic_ticket {
             new_state: STATE_COMMEMORATIVE,
             timestamp: current_time,
         });
+    }
+
+    // ==================== EVENT CANCELLATION ====================
+    
+    /// Hủy sự kiện và hoàn tiền cho người mua vé
+    /// Chỉ organizer mới được phép hủy
+    public entry fun cancel_event(
+        event_config: &EventConfig,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Chỉ organizer mới được hủy
+        assert!(tx_context::sender(ctx) == event_config.organizer, ENotEventOrganizer);
+        
+        // Chỉ hủy được trước khi sự kiện diễn ra
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time < event_config.event_time, EEventAlreadyStarted);
+
+        let refunded_amount = event_config.sold_tickets * event_config.original_price;
+        
+        event::emit(EventCancelled {
+            event_id: object::uid_to_inner(&event_config.id),
+            organizer: event_config.organizer,
+            refunded_amount,
+            timestamp: current_time,
+        });
+        
+        // Note: Actual refund logic would require tracking ticket holders
+        // and transferring coins back. This emits event for off-chain processing.
     }
 
     // ==================== WAITLIST & RESALE SYSTEM ====================

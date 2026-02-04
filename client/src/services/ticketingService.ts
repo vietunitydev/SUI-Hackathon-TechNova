@@ -24,6 +24,20 @@ export class TicketingService {
   }
 
   /**
+   * Get SuiClient instance
+   */
+  getClient(): SuiClient {
+    return this.client;
+  }
+
+  /**
+   * Get Package ID
+   */
+  getPackageId(): string {
+    return PACKAGE_ID;
+  }
+
+  /**
    * Tạo sự kiện mới
    */
   async createEvent(params: CreateEventParams): Promise<Transaction> {
@@ -97,6 +111,23 @@ export class TicketingService {
       arguments: [
         tx.object(params.ticketId),
         tx.object(params.eventConfigId),
+        tx.object('0x6'), // Clock object
+      ],
+    });
+
+    return tx;
+  }
+
+  /**
+   * Hủy sự kiện (chỉ organizer)
+   */
+  async cancelEvent(eventConfigId: string): Promise<Transaction> {
+    const tx = new Transaction();
+
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::cancel_event`,
+      arguments: [
+        tx.object(eventConfigId),
         tx.object('0x6'), // Clock object
       ],
     });
@@ -408,13 +439,6 @@ export class TicketingService {
       console.error('Error checking waitlist:', error);
       return false;
     }
-  }
-
-  /**
-   * Get SuiClient instance
-   */
-  getClient(): SuiClient {
-    return this.client;
   }
 }
 
