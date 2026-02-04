@@ -182,12 +182,12 @@
     │                          │                          │
     │ 8. Fetch ticket data     │                          │
     ├──────────────────────────┴─────────────────────────>│
-    │                                                      │
-    │ 9. Return ticket object with metadata                │
-    │<─────────────────────────────────────────────────────┤
-    │                                                      │
-    │ 10. Display QR + Countdown                           │
-    │                                                      │
+    │                                                     │
+    │ 9. Return ticket object with metadata               │
+    │<────────────────────────────────────────────────────┤
+    │                                                     │
+    │ 10. Display QR + Countdown                          │
+    │                                                     │
 ```
 
 ---

@@ -1,300 +1,655 @@
-# 🎫 Dynamic Ticketing - Hệ thống vé NFT chống phe vé
+# Sui Dynamic Ticketing System
 
 [![Sui Network](https://img.shields.io/badge/Sui-Network-blue)](https://sui.io)
 [![Move Language](https://img.shields.io/badge/Move-Language-orange)](https://github.com/move-language/move)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-blue)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.3-blue)](https://react.dev/)
 
-Hệ thống bán vé NFT động trên Sui Blockchain với tính năng chống phe vé và thay đổi trạng thái tự động.
+Hệ thống bán vé NFT động trên Sui Blockchain với cơ chế chống phe vé tích hợp sẵn trong smart contract và giao diện web React/TypeScript.
 
-> **🏆 Built for TechNova Sui Hackathon 2026**
+> Built for TechNova Sui Hackathon 2026
 
-## 📖 Quick Links
+## Quick Links
 
-- **[🚀 Quick Start](#-hướng-dẫn-deploy)** - Get started in 5 minutes
-- **[📚 Full Documentation](COMPLETE.md)** - Complete guide
-- **[🎬 Demo Script](DEMO_SCRIPT.md)** - Presentation guide
-- **[🏗️ Architecture](ARCHITECTURE.md)** - System design
-- **[✅ Checklist](CHECKLIST.md)** - Pre-demo verification
+- **Package ID**: `0xe4c711b73e4ef93b4afb440e42bbee5db90a1028f91ce75d700be44b813b87e9`
+- **Network**: Sui Testnet
+- **Version**: v4 (Latest - Anti-scalping with refund logic)
+- **Contract**: [View on Sui Explorer](https://suiexplorer.com/object/0xe4c711b73e4ef93b4afb440e42bbee5db90a1028f91ce75d700be44b813b87e9?network=testnet)
+- **Presentation**: [PRESENTATION.md](PRESENTATION.md)
 
-## 🌟 Tính năng chính
+## Core Features
 
-### 1. **Chống Phe Vé (Anti-Scalping)**
-- Sử dụng **Sui Kiosk** để áp đặt luật: Không được bán lại vé cao hơn giá gốc
-- Ngăn chặn hoàn toàn nạn "phe vé" đầu cơ
+### 1. Anti-Scalping Protection
 
-### 2. **Dynamic State - Vé Thay Đổi Trạng Thái**
+Cơ chế chống phe vé được tích hợp trực tiếp trong smart contract:
+- **Original Price Enforcement**: Mỗi vé lưu giá gốc (original_price), không thể bán lại với giá cao hơn
+- **Refund Logic**: Nếu vé được chuyển nhượng, buyer chỉ trả giá gốc, phần chênh lệch refund về seller
+- **On-chain Verification**: Kiểm tra giá trong `transfer_ticket()` function trước khi cho phép giao dịch
 
-#### 🕐 Trước sự kiện (PENDING)
-- Hiển thị **QR Code** để check-in
-- **Countdown** đếm ngược thời gian
-- Hình ảnh: Vé chờ với màu tím gradient
+### 2. Dynamic Ticket States
 
-#### ✅ Khi Check-in (CHECKED_IN)
-- Tự động chuyển hình ảnh sang "Đã Sử Dụng"
-- Tránh lừa đảo dùng lại vé
-- Hình ảnh: Vé xanh với dấu tick
+Vé NFT tự động thay đổi trạng thái theo vòng đời sự kiện:
 
-#### 🏆 Sau sự kiện (COMMEMORATIVE)
-- Chuyển thành **POAP** (Proof of Attendance Protocol)
-- Huy hiệu kỷ niệm đẹp mắt để sưu tầm
-- Hình ảnh: Badge vàng cam với icon trophy
+**PENDING** (Trước khi check-in)
+- Trạng thái ban đầu khi mua vé
+- Hiển thị countdown đếm ngược đến ngày sự kiện
+- Sẵn sàng để check-in tại cổng
 
-### 3. **Dynamic Fields**
-- Metadata thay đổi real-time
-- QR Code động
-- Timestamp cập nhật tự động
+**CHECKED_IN** (Sau khi check-in)
+- Organizer scan/nhập ticket ID để check-in
+- Metadata cập nhật timestamp check-in
+- Không thể sử dụng lại vé (prevent fraud)
 
-## 🏗️ Kiến trúc
+**COMMEMORATIVE** (Sau sự kiện 24h)
+- Chuyển đổi thành POAP (Proof of Attendance)
+- Trở thành NFT kỷ niệm có thể sưu tầm
+- Badge chứng minh đã tham dự sự kiện
 
-### Smart Contract (Move)
+### 3. Multi-Page React Architecture
+
+Giao diện web được xây dựng với React Router DOM v7 với 6 routes chính:
+
+**1. Browse Events (/)** - Trang chủ
+- Hiển thị danh sách tất cả sự kiện đang có
+- Filter theo trạng thái (Upcoming/Ongoing/Ended)
+- Xem chi tiết và mua vé trực tiếp
+
+**2. My Tickets (/my-tickets)** - Quản lý vé đã mua
+- Danh sách vé NFT của người dùng
+- Hiển thị trạng thái vé (PENDING/CHECKED_IN/COMMEMORATIVE)
+- Countdown timer cho sự kiện sắp diễn ra
+
+**3. My Events (/my-events)** - Dashboard cho organizer
+- Quản lý các sự kiện đã tạo
+- Xem chi tiết từng sự kiện
+- Tạo sự kiện mới
+
+**4. Event Detail (/event/:eventId)** - Chi tiết sự kiện với 3 tabs
+- **Tab Overview**: Thông tin sự kiện + thống kê (tổng vé/đã bán/còn lại/đã check-in, doanh thu, phân bố trạng thái vé)
+- **Tab Check-in**: Form nhập Ticket ID để check-in người tham dự
+- **Tab Tickets**: Bảng danh sách tất cả vé đã bán (ID, Buyer, State, Check-in Time)
+
+**5. Create Event (/create-event)** - Form tạo sự kiện mới
+- Nhập thông tin: tên, mô tả, địa điểm, thời gian
+- Cấu hình vé: giá và số lượng
+- Submit để mint Event object on-chain
+
+**6. User Info (/user-info)** - Thông tin người dùng
+- Hiển thị SUI balance
+- Thống kê cá nhân (số vé đã mua, số sự kiện tham gia)
+
+## Architecture
+
+### System Architecture Diagram
+
 ```
-sources/
-└── dynamic_ticket.move    # Main contract với Sui Kiosk integration
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER LAYER                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐              ┌──────────────┐               │
+│  │   Organizer  │              │    Buyer     │               │
+│  │  (Web User)  │              │  (Web User)  │               │
+│  └──────┬───────┘              └──────┬───────┘               │
+│         │                             │                        │
+│         │   Sui Wallet Extension      │                        │
+│         └─────────────┬───────────────┘                        │
+│                       │                                         │
+└───────────────────────┼─────────────────────────────────────────┘
+                        │
+                        │ JSON-RPC / Transaction
+                        │
+┌───────────────────────▼─────────────────────────────────────────┐
+│                    FRONTEND LAYER                               │
+│                  (React + TypeScript)                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │              React Router DOM v7                       │   │
+│  │  ┌──────────┬──────────┬──────────┬──────────────┐   │   │
+│  │  │   Home   │   My     │   My     │    Event     │   │   │
+│  │  │    /     │ Tickets  │  Events  │   Detail     │   │   │
+│  │  ├──────────┼──────────┼──────────┼──────────────┤   │   │
+│  │  │  Create  │   User   │          │              │   │   │
+│  │  │  Event   │   Info   │          │              │   │   │
+│  │  └──────────┴──────────┴──────────┴──────────────┘   │   │
+│  └────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │           @mysten/dapp-kit                             │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │   │
+│  │  │ Wallet Conn  │  │  SuiClient   │  │ Transaction│  │   │
+│  │  └──────────────┘  └──────────────┘  └────────────┘  │   │
+│  └────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        │ RPC Calls / Transactions
+                        │
+┌───────────────────────▼─────────────────────────────────────────┐
+│                    SUI BLOCKCHAIN                               │
+│                      (Testnet)                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │        Smart Contract (Move - 1060 lines)              │   │
+│  │     Package: 0xe4c711...813b87e9                       │   │
+│  ├────────────────────────────────────────────────────────┤   │
+│  │                                                         │   │
+│  │  ┌──────────────────────────────────────────────┐     │   │
+│  │  │          SHARED OBJECTS                      │     │   │
+│  │  │                                               │     │   │
+│  │  │  Event {                                     │     │   │
+│  │  │    id: UID                                   │     │   │
+│  │  │    organizer: address                        │     │   │
+│  │  │    ticket_price: u64                         │     │   │
+│  │  │    total_tickets: u64                        │     │   │
+│  │  │    sold_tickets: u64                         │     │   │
+│  │  │  }                                           │     │   │
+│  │  └──────────────────────────────────────────────┘     │   │
+│  │                                                         │   │
+│  │  ┌──────────────────────────────────────────────┐     │   │
+│  │  │          OWNED OBJECTS                       │     │   │
+│  │  │                                               │     │   │
+│  │  │  Ticket {                                    │     │   │
+│  │  │    id: UID                                   │     │   │
+│  │  │    event_id: ID                              │     │   │
+│  │  │    owner: address                            │     │   │
+│  │  │    original_price: u64  // Anti-scalping    │     │   │
+│  │  │    state: u8            // Dynamic state     │     │   │
+│  │  │    purchase_time: u64                        │     │   │
+│  │  │    checkin_time: Option<u64>                 │     │   │
+│  │  │  }                                           │     │   │
+│  │  └──────────────────────────────────────────────┘     │   │
+│  │                                                         │   │
+│  │  ┌──────────────────────────────────────────────┐     │   │
+│  │  │          ENTRY FUNCTIONS                     │     │   │
+│  │  │                                               │     │   │
+│  │  │  • create_event()                            │     │   │
+│  │  │  • mint_ticket()                             │     │   │
+│  │  │  • check_in_ticket()                         │     │   │
+│  │  │  • transform_to_commemorative()              │     │   │
+│  │  │  • transfer_ticket()  // Anti-scalping       │     │   │
+│  │  └──────────────────────────────────────────────┘     │   │
+│  │                                                         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │              Sui Framework                             │   │
+│  │  • Object Model    • Coin Module    • Clock           │   │
+│  │  • Transfer Logic  • Event System   • TxContext       │   │
+│  └────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Components:**
-- `EventConfig`: Quản lý thông tin sự kiện
-- `Ticket`: NFT vé với dynamic fields
-- `TicketMetadata`: Metadata động thay đổi theo state
-- Anti-scalping policy với Kiosk
+### Data Flow
 
-### Frontend (TypeScript + React)
 ```
-client/
-├── src/
-│   ├── components/
-│   │   ├── TicketCard.tsx        # Card hiển thị vé
-│   │   ├── EventCard.tsx         # Card sự kiện
-│   │   └── CreateEventForm.tsx   # Form tạo event
-│   ├── services/
-│   │   └── ticketingService.ts   # SDK tương tác với contract
-│   ├── types/
-│   │   └── ticket.ts             # TypeScript types
-│   └── config/
-│       └── constants.ts          # Config & constants
+┌─────────────────────────────────────────────────────────────────┐
+│                    CREATE EVENT FLOW                            │
+└─────────────────────────────────────────────────────────────────┘
+
+Organizer → Connect Wallet → Fill Form → Submit
+                                    ↓
+                          create_event() transaction
+                                    ↓
+                    ┌───────────────┴───────────────┐
+                    │   Sui Blockchain              │
+                    │   • Create Event (shared obj) │
+                    │   • Emit event                │
+                    └───────────────┬───────────────┘
+                                    ↓
+                    Frontend fetch → Display in "My Events"
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     BUY TICKET FLOW                             │
+└─────────────────────────────────────────────────────────────────┘
+
+Buyer → Browse Events → Select Event → Click "Buy Ticket"
+                                    ↓
+                          mint_ticket() transaction
+                          (Payment: Coin<SUI>)
+                                    ↓
+                    ┌───────────────┴───────────────┐
+                    │   Sui Blockchain              │
+                    │   • Transfer SUI to organizer │
+                    │   • Mint Ticket NFT (owned)   │
+                    │   • Set state: PENDING        │
+                    │   • Store original_price      │
+                    └───────────────┬───────────────┘
+                                    ↓
+                    Frontend fetch → Display in "My Tickets"
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    CHECK-IN FLOW                                │
+└─────────────────────────────────────────────────────────────────┘
+
+Organizer → Event Detail → Check-in Tab → Enter Ticket ID
+                                    ↓
+                          check_in_ticket() transaction
+                                    ↓
+                    ┌───────────────┴───────────────┐
+                    │   Sui Blockchain              │
+                    │   • Verify organizer          │
+                    │   • Update state: CHECKED_IN  │
+                    │   • Record checkin_time       │
+                    └───────────────┬───────────────┘
+                                    ↓
+                    Frontend → Ticket state updated
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  ANTI-SCALPING FLOW                             │
+└─────────────────────────────────────────────────────────────────┘
+
+Seller → Want to transfer ticket with price > original_price
+                                    ↓
+                    transfer_ticket(payment: Coin<SUI>)
+                                    ↓
+                    ┌───────────────┴───────────────┐
+                    │   Smart Contract Logic        │
+                    │   if payment > original_price │
+                    │      refund = payment - orig  │
+                    │      return refund to buyer   │
+                    │   transfer original_price     │
+                    │   to seller                   │
+                    └───────────────┬───────────────┘
+                                    ↓
+                    Buyer only pays original price!
+                    (Anti-scalping enforced)
 ```
 
-## 🚀 Hướng dẫn Deploy
+### Technology Stack Overview
 
-### Bước 1: Deploy Smart Contract
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Layer          │  Technology              │  Version          │
+├─────────────────┼──────────────────────────┼───────────────────┤
+│  Blockchain     │  Sui Network             │  Testnet          │
+│  Smart Contract │  Move Language           │  v1.0             │
+│  Package ID     │  0xe4c711...813b87e9     │  v4 (latest)      │
+├─────────────────┼──────────────────────────┼───────────────────┤
+│  Frontend       │  React                   │  18.3.1           │
+│                 │  TypeScript              │  5.2.2            │
+│                 │  Vite                    │  5.4.21           │
+│                 │  React Router DOM        │  7.13.0           │
+├─────────────────┼──────────────────────────┼───────────────────┤
+│  Sui SDK        │  @mysten/sui             │  ^1.17.0          │
+│                 │  @mysten/dapp-kit        │  ^0.14.30         │
+├─────────────────┼──────────────────────────┼───────────────────┤
+│  Utilities      │  date-fns                │  latest           │
+├─────────────────┼──────────────────────────┼───────────────────┤
+│  Deployment     │  Vercel / Netlify        │  Production ready │
+└─────────────────┴──────────────────────────┴───────────────────┘
+```
+
+### Smart Contract (Move - 1060 lines)
+
+**Main Structs**:
+```move
+struct Event has key, store {
+    id: UID,
+    name: String,
+    description: String,
+    location: String,
+    event_time: u64,
+    organizer: address,
+    ticket_price: u64,
+    total_tickets: u64,
+    sold_tickets: u64
+}
+
+struct Ticket has key, store {
+    id: UID,
+    event_id: ID,
+    owner: address,
+    original_price: u64,  // For anti-scalping
+    state: u8,  // 0=PENDING, 1=CHECKED_IN, 2=COMMEMORATIVE
+    purchase_time: u64,
+    checkin_time: Option<u64>
+}
+```
+
+**Key Functions**:
+
+```move
+// Tạo sự kiện mới (organizer only)
+public entry fun create_event(
+    name: String,
+    description: String, 
+    location: String,
+    event_time: u64,
+    ticket_price: u64,
+    total_tickets: u64,
+    ctx: &mut TxContext
+)
+
+// Mua vé (mint Ticket NFT)
+public entry fun mint_ticket(
+    event: &mut Event,
+    payment: Coin<SUI>,
+    ctx: &mut TxContext
+)
+
+// Check-in vé (organizer only)
+public entry fun check_in_ticket(
+    ticket: &mut Ticket,
+    event: &Event,
+    clock: &Clock,
+    ctx: &TxContext
+)
+
+// Transform vé thành POAP sau sự kiện
+public entry fun transform_to_commemorative(
+    ticket: &mut Ticket,
+    event: &Event,
+    clock: &Clock
+)
+
+// Chuyển nhượng vé với kiểm tra anti-scalping
+public entry fun transfer_ticket(
+    ticket: Ticket,
+    recipient: address,
+    payment: Coin<SUI>,
+    ctx: &mut TxContext
+)
+```
+
+**Anti-Scalping Logic trong `transfer_ticket()`**:
+```move
+let paid_amount = coin::value(&payment);
+let original_price = ticket.original_price;
+
+if (paid_amount > original_price) {
+    // Refund overpayment
+    let refund_amount = paid_amount - original_price;
+    let refund_coin = coin::split(&mut payment, refund_amount, ctx);
+    transfer::public_transfer(refund_coin, sender);
+};
+
+// Transfer only original_price to seller
+transfer::public_transfer(payment, sender);
+```
+
+### Frontend (React + TypeScript)
+
+**Tech Stack**:
+- React 18.3.1 với TypeScript 5.2.2
+- Vite 5.4.21 (build tool)
+- React Router DOM v7.13.0 (routing)
+- @mysten/sui ^1.17.0 (Sui SDK)
+- @mysten/dapp-kit ^0.14.30 (wallet integration)
+- date-fns (date formatting)
+
+**Styling**:
+- Dark theme với primary color #0f172a
+- Glassmorphism effects
+- Gradient buttons (blue/pink/green)
+- Responsive grid layout
+- No emojis in UI (professional design)
+
+**State Management**:
+- Local state với React hooks (useState, useEffect)
+- Wallet connection via @mysten/dapp-kit
+- Real-time data fetching từ Sui RPC
+
+## Installation & Setup
+
+### Prerequisites
+- Node.js 18+ 
+- npm hoặc yarn
+- Sui CLI (để deploy contract)
+- Sui Wallet browser extension
+
+### 1. Clone Repository
 
 ```bash
-# Di chuyển vào thư mục gốc
-cd /Users/sakai/VIET_Working/APP_WORK/sui-hackathon-technova
-
-# Build contract
-sui move build
-
-# Deploy lên testnet
-sui client publish --gas-budget 100000000
-
-# Lưu lại PACKAGE_ID từ kết quả deploy
+git clone <repository-url>
+cd sui-hackathon-technova
 ```
 
-### Bước 2: Cập nhật Package ID
-
-Sau khi deploy, cập nhật `PACKAGE_ID` trong file:
-```typescript
-// client/src/config/constants.ts
-export const PACKAGE_ID = '0x...'; // Paste package ID ở đây
-```
-
-### Bước 3: Setup Frontend
+### 2. Install Dependencies
 
 ```bash
-# Di chuyển vào thư mục client
-cd client
-
-# Cài đặt dependencies
+cd web
 npm install
+```
 
-# Chạy development server
+### 3. Configure Network
+
+File `web/src/config.ts`:
+```typescript
+export const NETWORK = "testnet";
+export const PACKAGE_ID = "0xe4c711b73e4ef93b4afb440e42bbee5db90a1028f91ce75d700be44b813b87e9";
+```
+
+### 4. Run Development Server
+
+```bash
 npm run dev
 ```
 
-Frontend sẽ chạy tại: `http://localhost:5173`
+Mở trình duyệt tại `http://localhost:5173`
 
-## 📖 Cách sử dụng
+### 5. Build for Production
+
+```bash
+npm run build
+```
+
+Output trong folder `dist/`
+
+## Deploy Smart Contract (Optional)
+
+Nếu muốn deploy contract version mới:
+
+```bash
+cd contract
+sui move build
+sui client publish --gas-budget 100000000
+```
+
+Cập nhật `PACKAGE_ID` trong `web/src/config.ts` với package ID mới.
+
+## Usage Guide
 
 ### Cho Organizer (Người tổ chức sự kiện)
 
-1. **Kết nối Sui Wallet**
-2. **Tạo sự kiện mới:**
-   - Click tab "➕ Tạo sự kiện"
-   - Điền thông tin: Tên, thời gian, giá vé, số lượng, địa điểm
-   - Giá vé tính bằng MIST (1 SUI = 1,000,000,000 MIST)
-3. **Check-in vé:**
-   - Khi khách tới sự kiện, scan QR code
-   - Click "✓ Check-in vé này" để đánh dấu đã sử dụng
+1. **Kết nối ví Sui** qua nút "Connect Wallet"
+2. Chuyển đến trang **My Events** hoặc nhấn **Create Event**
+3. Điền thông tin sự kiện:
+   - Tên sự kiện
+   - Mô tả
+   - Địa điểm
+   - Thời gian (chọn date/time)
+   - Giá vé (SUI)
+   - Số lượng vé
+4. Nhấn **Create Event** và approve transaction
+5. Sau khi tạo xong, xem chi tiết sự kiện trong **My Events**
+6. Vào trang **Event Detail** > tab **Check-in** để check-in vé cho attendees
 
-### Cho Người mua vé
+### Cho Buyer (Người mua vé)
 
-1. **Kết nối Sui Wallet**
-2. **Mua vé:**
-   - Tab "📅 Sự kiện" → Chọn sự kiện
-   - Click "🎫 Mua vé ngay"
-   - Xác nhận giao dịch trong wallet
-3. **Xem vé của bạn:**
-   - Tab "🎫 Vé của tôi"
-   - Thấy QR code và countdown
-4. **Sau sự kiện:**
-   - Sau 24h, vé có thể chuyển thành huy hiệu kỷ niệm
-   - Click "🏆 Chuyển thành huy hiệu kỷ niệm"
+1. **Kết nối ví Sui** 
+2. Trang chủ hiển thị danh sách events
+3. Nhấn **Buy Ticket** trên event muốn tham gia
+4. Approve transaction để mint vé NFT
+5. Vào **My Tickets** để xem vé đã mua
+6. Khi đến sự kiện, organizer sẽ check-in bằng Ticket ID
+7. Sau sự kiện 24h, có thể transform vé thành POAP commemorative badge
 
-## 🛡️ Anti-Scalping Features
+## Anti-Scalping Demonstration
 
-### 1. Price Cap với Kiosk
+**Scenario**: User A mua vé giá 100 SUI, sau đó muốn bán lại cho User B với giá 150 SUI
+
+**Kết quả**:
+- Smart contract detect giá 150 > original_price (100)
+- Tự động refund 50 SUI về cho User B
+- User A chỉ nhận 100 SUI (giá gốc)
+- User B chỉ mất 100 SUI (giá gốc)
+
+**On-chain enforcement**: Không thể bán vé cao hơn giá gốc.
+
+## Demo Flow
+
+### Happy Path Demo
+
+1. **Organizer tạo event**
+   - Name: "Sui Meetup Ha Noi"
+   - Price: 10 SUI
+   - Tickets: 50
+   - Time: 1 tuần sau
+
+2. **Buyer A mua 2 vé**
+   - Trả 20 SUI
+   - Nhận 2 Ticket NFTs (state: PENDING)
+   - Hiển thị countdown trong My Tickets
+
+3. **Ngày event đến**
+   - Buyer A đến venue
+   - Organizer check-in ticket IDs
+   - Vé chuyển state PENDING → CHECKED_IN
+
+4. **Sau event 24h**
+   - Buyer A transform tickets thành COMMEMORATIVE
+   - Giờ là POAP badges để lưu giữ
+
+### Anti-Scalping Demo
+
+1. **Buyer B muốn mua vé từ Buyer A**
+   - Buyer A offer bán 1 vé với giá 15 SUI (cao hơn gốc 10 SUI)
+   
+2. **Transfer transaction**
+   - Smart contract nhận payment 15 SUI
+   - Phát hiện: 15 > original_price (10)
+   - **Refund**: 5 SUI về Buyer B
+   - **Transfer**: 10 SUI đến Buyer A
+   - Buyer B chỉ mất 10 SUI, không bị chém
+
+## Tech Highlights
+
+### Blockchain Features
+- **Sui Move Smart Contract**: Type-safe, resource-oriented programming
+- **Object-Centric Model**: Events và Tickets là first-class objects
+- **Shared Objects**: Event objects shared để multiple users mint tickets
+- **Clock Object**: On-chain time verification cho check-in/transform logic
+- **Coin Management**: Native SUI payment handling với automatic refund
+
+### Frontend Architecture
+- **React Router v7**: Client-side routing với proper URL structures
+- **SuiClient Integration**: Direct RPC calls để fetch on-chain data
+- **Wallet Connect**: Seamless integration với Sui wallet extensions
+- **Responsive Design**: Mobile-friendly layout
+- **Real-time Updates**: Countdown timers, live event status
+
+### Security
+- **Organizer Authorization**: Chỉ organizer mới check-in được tickets
+- **State Validation**: Không thể check-in ticket đã CHECKED_IN rồi
+- **Time Constraints**: Chỉ transform được sau event 24h
+- **Price Enforcement**: Anti-scalping logic không thể bypass
+- **Type Safety**: Move compiler đảm bảo type correctness
+
+## Error Handling
+
+Contract có các error codes chi tiết:
+
 ```move
-public entry fun list_ticket_in_kiosk(
-    kiosk: &mut Kiosk,
-    cap: &KioskOwnerCap,
-    ticket: Ticket,
-    price: u64,
-) {
-    // Kiểm tra giá không vượt quá giá gốc
-    assert!(price <= ticket.original_price, EPriceExceedsOriginal);
-    kiosk::place(kiosk, cap, ticket);
-}
+const ENotEventOrganizer: u64 = 0;      // Không phải organizer
+const EEventNotStarted: u64 = 1;        // Sự kiện chưa bắt đầu  
+const ETicketAlreadyUsed: u64 = 2;      // Vé đã được sử dụng
+const EPriceExceedsOriginal: u64 = 3;   // Giá vượt quá giá gốc
+const EInsufficientPayment: u64 = 4;    // Payment không đủ
+const ESoldOut: u64 = 5;                // Hết vé
 ```
 
-### 2. Transfer Policy
-- Tạo policy ngăn chặn transfer không hợp lệ
-- Chỉ cho phép resale ≤ giá gốc
+Frontend hiển thị error messages từ transaction failures.
 
-## 🎯 Tại sao giải pháp này thắng?
+## Network Configuration
 
-### 1. **Giải quyết vấn đề thực tế**
-- Nạn phe vé là vấn đề lớn tại Việt Nam
-- Chứng minh khả năng ứng dụng blockchain vào đời sống
+**Default**: Sui Testnet
 
-### 2. **Showcase Sui's Unique Features**
-- **Sui Kiosk**: Policy enforcement không thể bypass
-- **Dynamic Fields**: Metadata thay đổi on-chain
-- **Object Model**: Vé là owned object, dễ quản lý
-
-### 3. **UX tuyệt vời**
-- Vé "sống" - thay đổi theo thời gian
-- QR Code tự động
-- POAP làm kỷ niệm
-
-### 4. **Technical Excellence**
-- Clean Move code
-- Type-safe TypeScript
-- Modern React UI
-
-## 📊 Demo Flow
-
-```
-1. Organizer tạo sự kiện "TechNova 2026"
-   └─> EventConfig được tạo (shared object)
-
-2. User A mua vé
-   └─> Ticket NFT được mint
-   └─> State: PENDING
-   └─> Hiển thị QR Code + Countdown
-
-3. Ngày sự kiện, User A tới venue
-   └─> Organizer scan QR, click Check-in
-   └─> State: CHECKED_IN
-   └─> Hình ảnh đổi sang "Đã sử dụng"
-
-4. Sau sự kiện 24h
-   └─> User A transform vé
-   └─> State: COMMEMORATIVE
-   └─> Thành POAP badge đẹp mắt
+```typescript
+export const suiClient = new SuiClient({
+  url: "https://fullnode.testnet.sui.io:443"
+});
 ```
 
-## 🔧 Tech Stack
+**Explorer**: https://suiexplorer.com/?network=testnet
 
-- **Blockchain**: Sui Network (Testnet)
-- **Smart Contract**: Move Language
-- **Frontend**: React 18 + TypeScript
-- **Sui SDK**: @mysten/sui.js, @mysten/dapp-kit
-- **UI**: Custom CSS với gradient đẹp
-- **QR Code**: qrcode library
-- **Date**: date-fns
+## Project Structure
 
-## 📝 Contract Functions
-
-### Public Entry Functions
-- `create_event()`: Tạo sự kiện mới
-- `mint_ticket()`: Mua vé (với payment check)
-- `check_in_ticket()`: Check-in vé (chỉ organizer)
-- `transform_to_commemorative()`: Chuyển thành POAP
-- `list_ticket_in_kiosk()`: List vé với price cap
-
-### View Functions
-- `get_ticket_state()`: Lấy state hiện tại
-- `get_ticket_metadata()`: Lấy metadata động
-- `get_event_info()`: Thông tin sự kiện
-
-## 🎨 UI Features
-
-- **Gradient Background**: Purple to violet
-- **Responsive Cards**: Grid layout tự động
-- **Real-time Countdown**: Cập nhật mỗi giây
-- **QR Code**: Generate tự động cho mỗi vé
-- **State Badges**: Màu khác nhau cho từng state
-- **Progress Bar**: Hiển thị % vé đã bán
-
-## 🚨 Error Handling
-
-Contract có các error codes rõ ràng:
-- `ENotEventOrganizer`: Không phải organizer
-- `EEventNotStarted`: Sự kiện chưa bắt đầu
-- `ETicketAlreadyUsed`: Vé đã được sử dụng
-- `EPriceExceedsOriginal`: Giá vượt quá giá gốc
-
-## 🌐 Network Config
-
-Default: **Sui Testnet**
-- RPC: https://fullnode.testnet.sui.io:443
-- Explorer: https://suiexplorer.com/?network=testnet
-
-## 📦 Dependencies
-
-### Smart Contract
-- Sui Framework (testnet branch)
-
-### Frontend
-```json
-{
-  "@mysten/sui.js": "^0.54.0",
-  "@mysten/dapp-kit": "^0.14.0",
-  "react": "^18.2.0",
-  "qrcode": "^1.5.3",
-  "date-fns": "^3.0.0"
-}
+```
+sui-hackathon-technova/
+├── contract/               # Move smart contract
+│   ├── sources/
+│   │   └── dynamic_ticketing.move (1060 lines)
+│   └── Move.toml
+├── web/                   # React frontend
+│   ├── src/
+│   │   ├── pages/        # 6 page components
+│   │   ├── components/   # Layout, etc.
+│   │   ├── App.tsx       # Router setup
+│   │   └── config.ts     # Network config
+│   ├── package.json
+│   └── vite.config.ts
+├── PRESENTATION.md        # Presentation script (27 slides)
+├── vercel.json           # Vercel deployment config
+└── README.md             # This file
 ```
 
-## 🎓 Học từ dự án này
+## Deployment
 
-1. **Sui Kiosk**: Cách enforce policies on-chain
-2. **Dynamic Fields**: Thay đổi metadata mà không cần migrate
-3. **Object Ownership**: Quản lý NFT an toàn
-4. **Event System**: Emit events để frontend track
-5. **Clock Object**: Sử dụng thời gian on-chain
+### Deploy Frontend (Vercel/Netlify)
 
-## 🔮 Roadmap
+**Vercel**:
+```bash
+npm run build
+vercel --prod
+```
 
-- [ ] Implement Kiosk marketplace UI
-- [ ] Add NFT image generation API
-- [ ] Support multiple events per organizer
-- [ ] Email notifications cho check-in
-- [ ] Analytics dashboard
-- [ ] Mobile app (React Native)
-- [ ] Ticket transfer history
-- [ ] Secondary market với royalty
+**Netlify**:
+```bash
+npm run build
+netlify deploy --prod --dir=dist
+```
 
-## 👥 Credits
+File `vercel.json` và `public/_redirects` đã cấu hình sẵn cho SPA routing.
+
+## Roadmap
+
+**Phase 1** (Current - MVP)
+- Basic event creation and ticket minting
+- Anti-scalping enforcement
+- Dynamic state transitions
+- Multi-page React UI
+
+**Phase 2** (Future)
+- Email/SMS notifications cho check-in
+- Analytics dashboard cho organizers
+- Ticket transfer marketplace UI
+- Secondary market với automatic royalty
+
+**Phase 3** (Advanced)
+- Multi-event support per organizer
+- Dynamic NFT image generation API
+- Mobile app (React Native)
+- Integration với payment gateways
+
+## Contributing
+
+Pull requests welcome. Major changes, please open issue first.
+
+## License
+
+MIT License - Free to use and modify
+
+## Credits
 
 Built for **TechNova Sui Hackathon 2026**
 
-## 📄 License
-
-MIT License - Feel free to use and modify!
-
 ---
 
-**Chúc may mắn với hackathon! 🚀**
+For detailed presentation script, see [PRESENTATION.md](PRESENTATION.md)
