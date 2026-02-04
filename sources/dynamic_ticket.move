@@ -206,7 +206,7 @@ module dynamic_ticketing::dynamic_ticket {
         let ticket_number = event_config.sold_tickets;
 
         // Tạo ticket
-        let ticket = Ticket {
+        let mut ticket = Ticket {
             id: object::new(ctx),
             event_id: object::uid_to_inner(&event_config.id),
             ticket_number,
@@ -344,7 +344,7 @@ module dynamic_ticketing::dynamic_ticket {
     /// Hệ thống tự động chuyển cho người đầu hàng chờ
     /// => Scalper KHÔNG THỂ chỉ định người mua!
     public entry fun sell_back_ticket(
-        ticket: Ticket,
+        mut ticket: Ticket,
         waitlist: &mut WaitingList,
         event_config: &EventConfig,
         mut payment: Coin<SUI>,
@@ -484,7 +484,7 @@ module dynamic_ticketing::dynamic_ticket {
 
     // ==================== Helper Functions ====================
     
-    fun generate_qr_code(ticket_id: &ID): String {
+    fun generate_qr_code(_ticket_id: &ID): String {
         // Trong production, sẽ generate QR code thực sự
         string::utf8(b"QR_CODE_")
     }
@@ -498,8 +498,6 @@ module dynamic_ticketing::dynamic_ticket {
 
     #[test_only]
     use sui::test_scenario::{Self as ts};
-    #[test_only]
-    use sui::test_utils;
     
     // Test helper: Tạo event cho testing
     #[test_only]
@@ -658,11 +656,13 @@ module dynamic_ticketing::dynamic_ticket {
         let buyer = @0xB;
         let mut scenario = ts::begin(organizer);
         
+        let event_time = 1738800000000; // Future event time
+        
         // Setup and check-in
         {
             let ctx = ts::ctx(&mut scenario);
             init_for_testing(ctx);
-            create_test_event(organizer, 1000000000, 2000000000, 100, ctx); // Past event
+            create_test_event(organizer, event_time, 2000000000, 100, ctx);
         };
         
         ts::next_tx(&mut scenario, buyer);
@@ -690,13 +690,14 @@ module dynamic_ticketing::dynamic_ticket {
             ts::return_shared(event);
         };
         
-        // Transform to commemorative
+        // Transform to commemorative (after event + 24 hours)
         ts::next_tx(&mut scenario, buyer);
         {
             let mut ticket = ts::take_from_address<Ticket>(&scenario, buyer);
             let event = ts::take_shared<EventConfig>(&scenario);
-            let clock = clock::create_for_testing(ts::ctx(&mut scenario));
-            clock::increment_for_testing(&clock, 90000000); // +25 hours
+            let mut clock = clock::create_for_testing(ts::ctx(&mut scenario));
+            // Set clock to event_time + 25 hours (86400000ms = 24h, add extra 1 hour)
+            clock::set_for_testing(&mut clock, event_time + 90000000); // +25 hours from event start
             
             transform_to_commemorative(&mut ticket, &event, &clock, ts::ctx(&mut scenario));
             
