@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { EventConfig } from '../types/ticket';

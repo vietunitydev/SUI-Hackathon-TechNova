@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ConnectButton, useCurrentAccount, useSignAndExecuteTransactionBlock } from '@mysten/dapp-kit';
+import { useState, useEffect } from 'react';
+import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { CreateEventForm } from './components/CreateEventForm';
 import { EventCard } from './components/EventCard';
 import { TicketCard } from './components/TicketCard';
@@ -9,7 +9,7 @@ import './App.css';
 
 function App() {
   const account = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const [activeTab, setActiveTab] = useState<'events' | 'myTickets' | 'createEvent'>('events');
   const [events, setEvents] = useState<EventConfig[]>([]);
@@ -60,19 +60,38 @@ function App() {
 
     try {
       setLoading(true);
-      const tx = await ticketingService.createEvent(params, account.address);
+      const tx = await ticketingService.createEvent(params);
 
       signAndExecute(
         {
-          transactionBlock: tx,
+          transaction: tx,
         },
         {
-          onSuccess: () => {
+          onSuccess: (result: any) => {
+            console.log('Transaction result:', result);
+            
+            // Extract created object IDs from transaction result
+            try {
+              if (result.effects && result.effects.created) {
+                for (const created of result.effects.created) {
+                  const objType = created.owner;
+                  // EventConfig is a shared object
+                  if (objType && typeof objType === 'object' && 'Shared' in objType) {
+                    const eventId = created.reference.objectId;
+                    console.log('Tracking Event ID:', eventId);
+                    ticketingService.trackEventId(eventId);
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Error extracting event ID:', err);
+            }
+            
             showMessage('success', 'Tạo sự kiện thành công! 🎉');
-            loadEvents();
+            setTimeout(() => loadEvents(), 1000); // Wait a bit for indexing
             setActiveTab('events');
           },
-          onError: (error) => {
+          onError: (error: Error) => {
             console.error('Error creating event:', error);
             showMessage('error', 'Lỗi khi tạo sự kiện: ' + error.message);
           },
@@ -97,17 +116,14 @@ function App() {
 
     try {
       setLoading(true);
-      const tx = await ticketingService.mintTicket(
-        {
-          eventConfigId: eventId,
-          payment: event.originalPrice,
-        },
-        account.address
-      );
+      const tx = await ticketingService.mintTicket({
+        eventConfigId: eventId,
+        payment: event.originalPrice,
+      });
 
       signAndExecute(
         {
-          transactionBlock: tx,
+          transaction: tx,
         },
         {
           onSuccess: () => {
@@ -115,7 +131,7 @@ function App() {
             loadEvents();
             loadMyTickets();
           },
-          onError: (error) => {
+          onError: (error: Error) => {
             console.error('Error buying ticket:', error);
             showMessage('error', 'Lỗi khi mua vé: ' + error.message);
           },
@@ -134,24 +150,21 @@ function App() {
 
     try {
       setLoading(true);
-      const tx = await ticketingService.checkInTicket(
-        {
-          ticketId,
-          eventConfigId: eventId,
-        },
-        account.address
-      );
+      const tx = await ticketingService.checkInTicket({
+        ticketId,
+        eventConfigId: eventId,
+      });
 
       signAndExecute(
         {
-          transactionBlock: tx,
+          transaction: tx,
         },
         {
           onSuccess: () => {
             showMessage('success', 'Check-in thành công! ✓');
             loadMyTickets();
           },
-          onError: (error) => {
+          onError: (error: Error) => {
             console.error('Error checking in:', error);
             showMessage('error', 'Lỗi khi check-in: ' + error.message);
           },
@@ -170,24 +183,21 @@ function App() {
 
     try {
       setLoading(true);
-      const tx = await ticketingService.transformToCommemorative(
-        {
-          ticketId,
-          eventConfigId: eventId,
-        },
-        account.address
-      );
+      const tx = await ticketingService.transformToCommemorative({
+        ticketId,
+        eventConfigId: eventId,
+      });
 
       signAndExecute(
         {
-          transactionBlock: tx,
+          transaction: tx,
         },
         {
           onSuccess: () => {
             showMessage('success', 'Chuyển đổi thành công! 🏆');
             loadMyTickets();
           },
-          onError: (error) => {
+          onError: (error: Error) => {
             console.error('Error transforming:', error);
             showMessage('error', 'Lỗi khi chuyển đổi: ' + error.message);
           },
@@ -213,6 +223,17 @@ function App() {
         <p style={{ fontSize: '16px', marginTop: '8px' }}>
           ✨ Vé thay đổi trạng thái tự động | 🛡️ Chống bán lại cao hơn giá gốc | 🏆 POAP kỷ niệm
         </p>
+        {/*<div style={{ */}
+        {/*  marginTop: '16px', */}
+        {/*  padding: '12px', */}
+        {/*  background: '#fef3c7', */}
+        {/*  border: '2px solid #f59e0b',*/}
+        {/*  borderRadius: '8px',*/}
+        {/*  fontSize: '14px'*/}
+        {/*}}>*/}
+        {/*  ⚠️ <strong>QUAN TRỌNG:</strong> Vui lòng chuyển ví Sui Wallet của bạn sang <strong style={{ color: '#d97706' }}>TESTNET</strong><br/>*/}
+        {/*  📍 Cách chuyển: Mở Sui Wallet → Click network (góc trên phải) → Chọn "Testnet"*/}
+        {/*</div>*/}
       </div>
 
       {message && (

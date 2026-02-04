@@ -1,5 +1,6 @@
-import { SuiClient } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
+import { bcs } from '@mysten/sui/bcs';
 import { PACKAGE_ID, MODULE_NAME, SUI_NETWORK, NETWORK_CONFIG } from '../config/constants';
 import type {
   CreateEventParams,
@@ -25,18 +26,18 @@ export class TicketingService {
   /**
    * Tạo sự kiện mới
    */
-  async createEvent(params: CreateEventParams, signer: string): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+  async createEvent(params: CreateEventParams): Promise<Transaction> {
+    const tx = new Transaction();
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::create_event`,
       arguments: [
-        tx.pure(Array.from(new TextEncoder().encode(params.name))),
-        tx.pure(params.eventTime),
-        tx.pure(params.originalPrice),
-        tx.pure(params.totalTickets),
-        tx.pure(Array.from(new TextEncoder().encode(params.venue))),
-        tx.pure(Array.from(new TextEncoder().encode(params.description))),
+        tx.pure(bcs.vector(bcs.U8).serialize(Array.from(new TextEncoder().encode(params.name)))),
+        tx.pure(bcs.U64.serialize(params.eventTime)),
+        tx.pure(bcs.U64.serialize(params.originalPrice)),
+        tx.pure(bcs.U64.serialize(params.totalTickets)),
+        tx.pure(bcs.vector(bcs.U8).serialize(Array.from(new TextEncoder().encode(params.venue)))),
+        tx.pure(bcs.vector(bcs.U8).serialize(Array.from(new TextEncoder().encode(params.description)))),
       ],
     });
 
@@ -46,11 +47,11 @@ export class TicketingService {
   /**
    * Mint vé mới
    */
-  async mintTicket(params: MintTicketParams, signer: string): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+  async mintTicket(params: MintTicketParams): Promise<Transaction> {
+    const tx = new Transaction();
 
     // Split coin để thanh toán
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure(params.payment)]);
+    const [coin] = tx.splitCoins(tx.gas, [tx.pure(bcs.U64.serialize(params.payment))]);
 
     // Get clock object
     tx.moveCall({
@@ -68,8 +69,8 @@ export class TicketingService {
   /**
    * Check-in vé tại sự kiện
    */
-  async checkInTicket(params: CheckInTicketParams, signer: string): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+  async checkInTicket(params: CheckInTicketParams): Promise<Transaction> {
+    const tx = new Transaction();
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::check_in_ticket`,
@@ -87,10 +88,9 @@ export class TicketingService {
    * Chuyển vé thành huy hiệu kỷ niệm sau sự kiện
    */
   async transformToCommemorative(
-    params: TransformTicketParams,
-    signer: string
-  ): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+    params: TransformTicketParams
+  ): Promise<Transaction> {
+    const tx = new Transaction();
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::transform_to_commemorative`,
@@ -107,8 +107,8 @@ export class TicketingService {
   /**
    * Tham gia hàng chờ để mua vé resale
    */
-  async joinWaitlist(params: JoinWaitlistParams, signer: string): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+  async joinWaitlist(params: JoinWaitlistParams): Promise<Transaction> {
+    const tx = new Transaction();
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::join_waitlist`,
@@ -125,13 +125,12 @@ export class TicketingService {
    * Vé sẽ tự động đến người đầu hàng chờ
    */
   async sellBackTicket(
-    params: SellBackTicketParams,
-    signer: string
-  ): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+    params: SellBackTicketParams
+  ): Promise<Transaction> {
+    const tx = new Transaction();
 
     // Split coin để thanh toán (system cần coin để hoàn tiền)
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure(params.payment)]);
+    const [coin] = tx.splitCoins(tx.gas, [tx.pure(bcs.U64.serialize(params.payment))]);
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::sell_back_ticket`,
@@ -150,8 +149,8 @@ export class TicketingService {
   /**
    * Rời khỏi hàng chờ
    */
-  async leaveWaitlist(waitlistId: string, signer: string): Promise<TransactionBlock> {
-    const tx = new TransactionBlock();
+  async leaveWaitlist(waitlistId: string): Promise<Transaction> {
+    const tx = new Transaction();
 
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::leave_waitlist`,
@@ -268,33 +267,19 @@ export class TicketingService {
   /**
    * Lấy tất cả sự kiện
    */
+  /**
+   * Get all events - For demo, we'll track event IDs in local storage
+   * In production, use event indexing service
+   */
   async getAllEvents(): Promise<EventConfig[]> {
     try {
-      // Query shared objects of EventConfig type
-      const objects = await this.client.getOwnedObjects({
-        filter: {
-          StructType: `${PACKAGE_ID}::${MODULE_NAME}::EventConfig`,
-        },
-        options: {
-          showContent: true,
-        },
-      });
-
+      const eventIds = this.getTrackedEventIds();
       const events: EventConfig[] = [];
-      for (const obj of objects.data) {
-        if (obj.data?.content?.dataType === 'moveObject') {
-          const fields = obj.data.content.fields as any;
-          events.push({
-            id: fields.id.id,
-            name: fields.name,
-            organizer: fields.organizer,
-            eventTime: parseInt(fields.event_time),
-            originalPrice: parseInt(fields.original_price),
-            totalTickets: parseInt(fields.total_tickets),
-            soldTickets: parseInt(fields.sold_tickets),
-            venue: fields.venue,
-            description: fields.description,
-          });
+
+      for (const eventId of eventIds) {
+        const event = await this.getEvent(eventId);
+        if (event) {
+          events.push(event);
         }
       }
 
@@ -306,33 +291,44 @@ export class TicketingService {
   }
 
   /**
+   * Track event ID in localStorage
+   */
+  trackEventId(eventId: string): void {
+    const eventIds = this.getTrackedEventIds();
+    if (!eventIds.includes(eventId)) {
+      eventIds.push(eventId);
+      localStorage.setItem('sui_event_ids', JSON.stringify(eventIds));
+    }
+  }
+
+  /**
+   * Get tracked event IDs from localStorage
+   */
+  private getTrackedEventIds(): string[] {
+    const stored = localStorage.getItem('sui_event_ids');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  /**
    * Lấy thông tin waitlist cho sự kiện
    */
-  async getWaitlist(eventId: string): Promise<WaitingList | null> {
+  async getWaitlist(waitlistId: string): Promise<WaitingList | null> {
     try {
-      // Query all WaitingList objects
-      const objects = await this.client.getOwnedObjects({
-        filter: {
-          StructType: `${PACKAGE_ID}::${MODULE_NAME}::WaitingList`,
-        },
+      const obj = await this.client.getObject({
+        id: waitlistId,
         options: {
           showContent: true,
         },
       });
 
-      // Find waitlist for this event
-      for (const obj of objects.data) {
-        if (obj.data?.content?.dataType === 'moveObject') {
-          const fields = obj.data.content.fields as any;
-          if (fields.event_id === eventId) {
-            return {
-              id: fields.id.id,
-              eventId: fields.event_id,
-              queue: fields.queue || [],
-              queueLength: fields.queue ? fields.queue.length : 0,
-            };
-          }
-        }
+      if (obj.data?.content?.dataType === 'moveObject') {
+        const fields = obj.data.content.fields as any;
+        return {
+          id: fields.id.id,
+          eventId: fields.event_id,
+          queue: fields.queue || [],
+          queueLength: fields.queue ? fields.queue.length : 0,
+        };
       }
 
       return null;
