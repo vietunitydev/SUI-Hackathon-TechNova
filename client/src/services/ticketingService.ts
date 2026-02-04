@@ -171,19 +171,38 @@ export class TicketingService {
         id: eventId,
         options: {
           showContent: true,
+          showType: true,
         },
       });
 
+      // Validate it's an EventConfig object
       if (object.data?.content?.dataType === 'moveObject') {
+        const objectType = object.data.type as string;
+        console.log(`🔍 Checking object ${eventId.slice(0, 10)}... Type: ${objectType}`);
+        
+        // Skip if not EventConfig (e.g., TransferPolicy)
+        if (!objectType?.includes('::dynamic_ticket::EventConfig')) {
+          console.log(`⚠️ Skipping non-EventConfig object: ${eventId}`);
+          return null;
+        }
+
         const fields = object.data.content.fields as any;
+        
+        // Validate required fields exist
+        if (!fields.event_time || !fields.name) {
+          console.log(`⚠️ Invalid EventConfig fields: ${eventId}`);
+          return null;
+        }
+
+        console.log(`✅ Valid EventConfig: ${fields.name}`);
         return {
           id: fields.id.id,
           name: fields.name,
           organizer: fields.organizer,
-          eventTime: parseInt(fields.event_time),
-          originalPrice: parseInt(fields.original_price),
-          totalTickets: parseInt(fields.total_tickets),
-          soldTickets: parseInt(fields.sold_tickets),
+          eventTime: Number(fields.event_time),  // Convert to Number for date-fns
+          originalPrice: Number(fields.original_price),
+          totalTickets: Number(fields.total_tickets),
+          soldTickets: Number(fields.sold_tickets),
           venue: fields.venue,
           description: fields.description,
         };

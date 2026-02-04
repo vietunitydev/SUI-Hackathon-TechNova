@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { SuiClient } from '@mysten/sui/client';
 import { CreateEventForm } from './components/CreateEventForm';
 import { EventCard } from './components/EventCard';
 import { TicketCard } from './components/TicketCard';
@@ -67,18 +68,49 @@ function App() {
           transaction: tx,
         },
         {
-          onSuccess: (result: any) => {
+          onSuccess: async (result: any) => {
             console.log('Transaction result:', result);
             
-            // Extract created object IDs from transaction result
+            // Extract created object IDs from transaction digest
             try {
-              if (result.effects && result.effects.created) {
-                for (const created of result.effects.created) {
-                  const objType = created.owner;
-                  // EventConfig is a shared object
-                  if (objType && typeof objType === 'object' && 'Shared' in objType) {
-                    const eventId = created.reference.objectId;
-                    console.log('Tracking Event ID:', eventId);
+              const client = new SuiClient({ url: 'https://fullnode.testnet.sui.io' });
+              
+              // Retry logic: Transaction might not be indexed immediately
+              let txDetails = null;
+              let retries = 5;
+              
+              while (retries > 0 && !txDetails) {
+                try {
+                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
+                  txDetails = await client.getTransactionBlock({
+                    digest: result.digest,
+                    options: {
+                      showEffects: true,
+                      showObjectChanges: true,
+                    },
+                  });
+                  break; // Success, exit loop
+                } catch (err: any) {
+                  retries--;
+                  if (retries === 0) throw err; // Last retry failed
+                  console.log(`Retry ${5 - retries}/5...`);
+                }
+              }
+              
+              console.log('Transaction details:', txDetails);
+              
+              // Extract EventConfig ID from created objects
+              if (txDetails?.objectChanges) {
+                for (const change of txDetails.objectChanges) {
+                  // EventConfig is a shared object that was created
+                  // Filter by objectType to exclude TransferPolicy
+                  if (change.type === 'created' && 
+                      change.owner && 
+                      typeof change.owner === 'object' && 
+                      'Shared' in change.owner &&
+                      change.objectType?.includes('::dynamic_ticket::EventConfig')) {
+                    const eventId = change.objectId;
+                    console.log('✅ Found Event ID:', eventId);
                     ticketingService.trackEventId(eventId);
                   }
                 }
@@ -88,7 +120,7 @@ function App() {
             }
             
             showMessage('success', 'Tạo sự kiện thành công! 🎉');
-            setTimeout(() => loadEvents(), 1000); // Wait a bit for indexing
+            setTimeout(() => loadEvents(), 2000); // Wait a bit for indexing
             setActiveTab('events');
           },
           onError: (error: Error) => {
