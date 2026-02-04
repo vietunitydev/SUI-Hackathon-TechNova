@@ -284,14 +284,45 @@ export class TicketingService {
   }
 
   /**
-   * Lấy tất cả sự kiện
-   */
-  /**
-   * Get all events - For demo, we'll track event IDs in local storage
-   * In production, use event indexing service
+   * Get all events by querying EventCreated events from blockchain
    */
   async getAllEvents(): Promise<EventConfig[]> {
     try {
+      // Query EventCreated events from blockchain
+      const eventType = `${PACKAGE_ID}::${MODULE_NAME}::EventCreated`;
+      
+      const eventsResponse = await this.client.queryEvents({
+        query: { MoveEventType: eventType },
+        order: 'descending', // Mới nhất trước
+        limit: 50, // Lấy tối đa 50 events
+      });
+
+      console.log(`📡 Found ${eventsResponse.data.length} EventCreated events`);
+
+      const events: EventConfig[] = [];
+
+      for (const eventData of eventsResponse.data) {
+        try {
+          const parsedJson = eventData.parsedJson as any;
+          const eventId = parsedJson.event_id;
+
+          // Fetch full event details
+          const event = await this.getEvent(eventId);
+          if (event) {
+            events.push(event);
+          }
+        } catch (err) {
+          console.error('Error parsing event:', err);
+        }
+      }
+
+      console.log(`✅ Loaded ${events.length} events`);
+      return events;
+    } catch (error) {
+      console.error('Error fetching events from blockchain:', error);
+      
+      // Fallback to localStorage tracking
+      console.log('⚠️ Falling back to localStorage');
       const eventIds = this.getTrackedEventIds();
       const events: EventConfig[] = [];
 
@@ -303,9 +334,6 @@ export class TicketingService {
       }
 
       return events;
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      return [];
     }
   }
 
