@@ -66,7 +66,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <div>
-        <label className="label" style={{ color: '#e2e8f0' }}>Giá vé (SUI)</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Giá vé (MIST)</label>
         <input
           type="number"
           name="originalPrice"

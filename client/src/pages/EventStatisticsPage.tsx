@@ -76,21 +76,6 @@ export const EventStatisticsPage: React.FC<EventStatisticsPageProps> = ({ event,
     <div>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <button
-          className="btn"
-          onClick={onBack}
-          style={{
-            marginBottom: '16px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            color: '#94a3b8',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          ← Quay lại
-        </button>
-        <h2 style={{ color: '#e2e8f0', marginBottom: '8px', fontSize: '28px', fontWeight: '700' }}>
-          Thống kê sự kiện
-        </h2>
         <h3 style={{ color: '#94a3b8', margin: 0, fontSize: '18px', fontWeight: '500' }}>
           {event.name}
         </h3>

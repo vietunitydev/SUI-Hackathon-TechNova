@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient } from '@mysten/sui/client';
 import { Layout } from './components/Layout';
@@ -13,18 +14,16 @@ import { ticketingService } from './services/ticketingService';
 import type { EventConfig, Ticket, CreateEventParams } from './types/ticket';
 import './App.css';
 
-function App() {
+function AppContent() {
   const account = useCurrentAccount();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const navigate = useNavigate();
 
-  const [currentPage, setCurrentPage] = useState<string>('browse');
   const [events, setEvents] = useState<EventConfig[]>([]);
   const [myEvents, setMyEvents] = useState<EventConfig[]>([]);
   const [myTickets, setMyTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventConfig | null>(null);
-  const [statisticsEvent, setStatisticsEvent] = useState<EventConfig | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -141,7 +140,7 @@ function App() {
             
             showMessage('success', 'Tạo sự kiện thành công!');
             setTimeout(() => loadEvents(), 2000); // Wait a bit for indexing
-            setCurrentPage('myEvents');
+            navigate('/my-events');
           },
           onError: (error: Error) => {
             console.error('Error creating event:', error);
@@ -335,15 +334,7 @@ function App() {
   };
 
   return (
-    <Layout
-      currentPage={statisticsEvent ? 'statistics' : selectedEvent ? 'eventDetail' : currentPage}
-      onNavigate={(page) => {
-        setCurrentPage(page);
-        setStatisticsEvent(null);
-        setSelectedEvent(null);
-      }}
-      userAddress={account?.address}
-    >
+    <Layout>
       {/* Message Toast */}
       {message && (
         <div className={`message ${message.type}`}>
@@ -351,65 +342,114 @@ function App() {
         </div>
       )}
 
-      {/* Page Rendering */}
-      {statisticsEvent ? (
-        <EventStatisticsPage
-          event={statisticsEvent}
-          tickets={myTickets}
-          onBack={() => {
-            setStatisticsEvent(null);
-            setCurrentPage('myEvents');
-          }}
-        />
-      ) : selectedEvent ? (
-        <EventDetailPage
-          event={selectedEvent}
-          onBack={() => {
-            setSelectedEvent(null);
-            setCurrentPage('myEvents');
-          }}
-          onCheckIn={handleCheckIn}
-          loading={loading}
-        />
-      ) : currentPage === 'browse' ? (
-        <BrowsePage
-          events={events}
-          onBuyTicket={handleBuyTicket}
-          loading={loading}
-        />
-      ) : currentPage === 'myTickets' ? (
-        <MyTicketsPage
-          tickets={myTickets}
-          events={events}
-          userAddress={account?.address}
-          onCheckIn={handleCheckIn}
-          onTransform={handleTransform}
-          onRefund={handleRefund}
-        />
-      ) : currentPage === 'myEvents' ? (
-        <MyEventsPage
-          events={myEvents}
-          userAddress={account?.address}
-          onViewDetails={setSelectedEvent}
-          onViewStatistics={setStatisticsEvent}
-          onCreateEvent={() => setCurrentPage('create')}
-          onCancelEvent={handleCancelEvent}
-          loading={loading}
-        />
-      ) : currentPage === 'create' ? (
-        <CreateEventPage
-          userAddress={account?.address}
-          onSubmit={handleCreateEvent}
-          loading={loading}
-        />
-      ) : currentPage === 'userInfo' ? (
-        <UserInfoPage
-          userAddress={account?.address}
-          events={events}
-          tickets={myTickets}
-        />
-      ) : null}
+      {/* Routes */}
+      <Routes>
+        <Route path="/" element={
+          <BrowsePage
+            events={events}
+            onBuyTicket={handleBuyTicket}
+            loading={loading}
+          />
+        } />
+        
+        <Route path="/my-tickets" element={
+          <MyTicketsPage
+            tickets={myTickets}
+            events={events}
+            userAddress={account?.address}
+            onCheckIn={handleCheckIn}
+            onTransform={handleTransform}
+            onRefund={handleRefund}
+          />
+        } />
+        
+        <Route path="/my-events" element={
+          <MyEventsPage
+            events={myEvents}
+            userAddress={account?.address}
+            onViewDetails={(event) => navigate(`/event/${event.id}`)}
+            onViewStatistics={(event) => navigate(`/event/${event.id}/statistics`)}
+            onCreateEvent={() => navigate('/create-event')}
+            onCancelEvent={handleCancelEvent}
+            loading={loading}
+          />
+        } />
+        
+        <Route path="/create-event" element={
+          <CreateEventPage
+            userAddress={account?.address}
+            onSubmit={handleCreateEvent}
+            loading={loading}
+          />
+        } />
+        
+        <Route path="/user-info" element={
+          <UserInfoPage
+            userAddress={account?.address}
+            events={events}
+            tickets={myTickets}
+          />
+        } />
+        
+        <Route path="/event/:eventId" element={
+          <EventDetailPageWrapper 
+            events={myEvents}
+            onCheckIn={handleCheckIn}
+            loading={loading}
+          />
+        } />
+        
+        <Route path="/event/:eventId/statistics" element={
+          <EventStatisticsPageWrapper 
+            events={myEvents}
+            tickets={myTickets}
+          />
+        } />
+      </Routes>
     </Layout>
+  );
+}
+
+// Wrapper components for route params
+function EventDetailPageWrapper({ events, onCheckIn, loading }: { 
+  events: EventConfig[], 
+  onCheckIn: (ticketId: string, eventId: string) => void,
+  loading: boolean
+}) {
+  const { eventId } = useParams<{ eventId: string }>();
+  const event = events.find(e => e.id === eventId);
+  
+  return (
+    <EventDetailPage
+      event={event || null}
+      onBack={() => {}}
+      onCheckIn={onCheckIn}
+      loading={loading}
+    />
+  );
+}
+
+function EventStatisticsPageWrapper({ events, tickets }: { 
+  events: EventConfig[], 
+  tickets: Ticket[]
+}) {
+  const { eventId } = useParams<{ eventId: string }>();
+  const event = events.find(e => e.id === eventId);
+  
+  return (
+    <EventStatisticsPage
+      event={event || null}
+      tickets={tickets}
+      onBack={() => {}}
+    />
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 

@@ -96,21 +96,6 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
     <div>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <button
-          className="btn"
-          onClick={onBack}
-          style={{
-            marginBottom: '16px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            color: '#94a3b8',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          ← Quay lại
-        </button>
-        <h2 style={{ color: '#e2e8f0', marginBottom: '8px', fontSize: '28px', fontWeight: '700' }}>
-          Chi tiết sự kiện
-        </h2>
         <h3 style={{ color: '#94a3b8', margin: 0, fontSize: '18px', fontWeight: '500' }}>
           {event.name}
         </h3>
@@ -268,10 +253,39 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
         <button
           onClick={handleCheckIn}
           disabled={loading || !ticketId.trim()}
-          className="btn btn-primary"
-          style={{ width: '100%' }}
+          style={{
+            width: '100%',
+            padding: '14px 24px',
+            background: loading || !ticketId.trim()
+              ? 'rgba(100, 116, 139, 0.2)'
+              : 'linear-gradient(135deg, #f472b6 0%, #ec4899 50%, #db2777 100%)',
+            border: '1px solid rgba(244, 114, 182, 0.3)',
+            borderRadius: '12px',
+            color: loading || !ticketId.trim() ? '#64748b' : 'white',
+            fontSize: '15px',
+            fontWeight: '700',
+            cursor: loading || !ticketId.trim() ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s ease',
+            boxShadow: loading || !ticketId.trim()
+              ? 'none'
+              : '0 8px 24px rgba(244, 114, 182, 0.3)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+          onMouseEnter={(e) => {
+            if (!loading && ticketId.trim()) {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 12px 32px rgba(244, 114, 182, 0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading && ticketId.trim()) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(244, 114, 182, 0.3)';
+            }
+          }}
         >
-          {loading ? 'Đang xử lý...' : 'Check-in'}
+          {loading ? '⏳ Đang xử lý...' : '✓ Check-in ngay'}
         </button>
       </div>
 

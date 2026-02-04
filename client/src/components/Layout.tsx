@@ -1,20 +1,32 @@
 import React from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import { ConnectButton } from '@mysten/dapp-kit';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: string;
-  onNavigate: (page: string) => void;
-  userAddress?: string;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, userAddress }) => {
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const location = useLocation();
+  
   const menuItems = [
-    { id: 'browse', label: 'Khám phá sự kiện' },
-    { id: 'myTickets', label: 'Vé của tôi' },
-    { id: 'myEvents', label: 'Quản lý sự kiện' },
-    { id: 'userInfo', label: 'Thông tin cá nhân' },
+    { path: '/', label: 'Khám phá sự kiện' },
+    { path: '/my-tickets', label: 'Vé của tôi' },
+    { path: '/my-events', label: 'Quản lý sự kiện' },
+    { path: '/user-info', label: 'Thông tin cá nhân' },
   ];
+  
+  const getCurrentPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/') return 'Khám phá sự kiện';
+    if (path === '/my-tickets') return 'Vé của tôi';
+    if (path === '/my-events') return 'Quản lý sự kiện';
+    if (path === '/user-info') return 'Thông tin cá nhân';
+    if (path === '/create-event') return 'Tạo sự kiện mới';
+    if (path.includes('/statistics')) return 'Thống kê sự kiện';
+    if (path.includes('/event/')) return 'Chi tiết sự kiện';
+    return '';
+  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0f172a' }}>
@@ -57,68 +69,50 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
 
         {/* Navigation */}
         <nav style={{ flex: 1 }}>
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              style={{
-                width: '100%',
-                padding: '14px 16px',
-                marginBottom: '8px',
-                background: currentPage === item.id ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                border: currentPage === item.id ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent',
-                borderRadius: '12px',
-                color: currentPage === item.id ? '#60a5fa' : '#94a3b8',
-                fontSize: '15px',
-                fontWeight: '600',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  e.currentTarget.style.color = '#e2e8f0';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentPage !== item.id) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#94a3b8';
-                }
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '14px 16px',
+                  marginBottom: '8px',
+                  textAlign: 'left',
+                  textDecoration: 'none',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.15) 0%, rgba(167, 139, 250, 0.1) 100%)'
+                    : 'transparent',
+                  border: isActive
+                    ? '1px solid rgba(96, 165, 250, 0.3)'
+                    : '1px solid transparent',
+                  borderRadius: '12px',
+                  color: isActive ? '#60a5fa' : '#94a3b8',
+                  fontSize: '14px',
+                  fontWeight: isActive ? '700' : '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.color = '#e2e8f0';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#94a3b8';
+                  }
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
-
-        {/* User Info */}
-        {/*{userAddress && (*/}
-        {/*  <div*/}
-        {/*    style={{*/}
-        {/*      padding: '16px',*/}
-        {/*      background: 'rgba(255, 255, 255, 0.05)',*/}
-        {/*      border: '1px solid rgba(255, 255, 255, 0.1)',*/}
-        {/*      borderRadius: '12px',*/}
-        {/*      marginTop: '20px',*/}
-        {/*    }}*/}
-        {/*  >*/}
-        {/*    /!*<div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>*!/*/}
-        {/*    /!*  Ví đã kết nối*!/*/}
-        {/*    /!*</div>*!/*/}
-        {/*    /!*<div*!/*/}
-        {/*    /!*  style={{*!/*/}
-        {/*    /!*    fontSize: '13px',*!/*/}
-        {/*    /!*    color: '#94a3b8',*!/*/}
-        {/*    /!*    fontFamily: 'monospace',*!/*/}
-        {/*    /!*    wordBreak: 'break-all',*!/*/}
-        {/*    /!*  }}*!/*/}
-        {/*    /!*>*!/*/}
-        {/*    /!*  {userAddress.slice(0, 6)}...{userAddress.slice(-4)}*!/*/}
-        {/*    /!*</div>*!/*/}
-        {/*  </div>*/}
-        {/*)}*/}
       </aside>
 
       {/* Main Content */}
@@ -135,7 +129,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
         >
           <div>
             <h2 style={{ color: '#e2e8f0', fontSize: '28px', fontWeight: '700', margin: 0 }}>
-              {menuItems.find((item) => item.id === currentPage)?.label || 'Dashboard'}
+              {getCurrentPageTitle()}
             </h2>
           </div>
           <ConnectButton />

@@ -34,10 +34,7 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
   if (events.length === 0) {
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ color: '#e2e8f0', margin: 0, fontSize: '28px', fontWeight: '700' }}>
-            Quản lý sự kiện
-          </h2>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
           <button
             onClick={onCreateEvent}
             style={{
@@ -82,13 +79,8 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h2 style={{ color: '#e2e8f0', margin: 0, marginBottom: '4px', fontSize: '28px', fontWeight: '700' }}>
-            Quản lý sự kiện
-          </h2>
-          <div style={{ color: '#94a3b8', fontSize: '14px' }}>
-            Bạn đang quản lý <span style={{ color: '#60a5fa', fontWeight: '700' }}>{events.length}</span> sự kiện
-          </div>
+        <div style={{ color: '#94a3b8', fontSize: '14px' }}>
+          Bạn đang quản lý <span style={{ color: '#60a5fa', fontWeight: '700' }}>{events.length}</span> sự kiện
         </div>
         <button
           onClick={onCreateEvent}
@@ -128,6 +120,8 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
 
           return (
             <div key={event.id} className="card" style={{ position: 'relative' }}>
+              <h2 style={{ marginTop: 0, color: '#e2e8f0', marginBottom: '8px', paddingRight: '110px' }}>{event.name}</h2>
+              
               {/* Status Badge */}
               <div
                 style={{
@@ -156,7 +150,6 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
                 {isUpcoming ? 'Đang bán' : 'Đã diễn ra'}
               </div>
 
-              <h2 style={{ marginTop: 0, color: '#e2e8f0', marginBottom: '12px' }}>{event.name}</h2>
               <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: '1.6' }}>{event.description}</p>
 
               <div className="event-info">
@@ -233,20 +226,6 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
                 <button className="button" onClick={() => onViewDetails(event)} style={{ flex: 1 }}>
                   Chi tiết
                 </button>
-
-                {isUpcoming && (
-                  <button
-                    className="button"
-                    onClick={() => onCancelEvent(event.id)}
-                    disabled={loading}
-                    style={{
-                      flex: 1,
-                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                    }}
-                  >
-                    {loading ? 'Đang xử lý...' : 'Hủy'}
-                  </button>
-                )}
               </div>
             </div>
           );

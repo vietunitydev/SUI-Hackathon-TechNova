@@ -31,19 +31,6 @@ export const CreateEventPage: React.FC<CreateEventPageProps> = ({ userAddress, o
       </div>
       
       <CreateEventForm onSubmit={onSubmit} loading={loading} />
-      
-      <div className="card" style={{ marginTop: '20px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-        <h4 style={{ color: '#60a5fa', marginTop: 0, marginBottom: '12px', fontSize: '16px' }}>
-          Tính năng của hệ thống
-        </h4>
-        <ul style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.8', margin: 0, paddingLeft: '20px' }}>
-          <li>Vé NFT thay đổi trạng thái tự động theo thời gian</li>
-          <li>Chống phe vé: Không được bán lại cao hơn giá gốc</li>
-          <li>Hàng chờ FIFO đảm bảo công bằng</li>
-          <li>POAP (Proof of Attendance) kỷ niệm sau sự kiện</li>
-          <li>Minh bạch hoàn toàn trên blockchain</li>
-        </ul>
-      </div>
     </div>
   );
 };

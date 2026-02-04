@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { SuiClient } from '@mysten/sui/client';
 import type { EventConfig, Ticket } from '../types/ticket';
 
 interface UserInfoPageProps {
@@ -8,6 +9,32 @@ interface UserInfoPageProps {
 }
 
 export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events, tickets }) => {
+  const [balance, setBalance] = useState<number>(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
+  useEffect(() => {
+    if (userAddress) {
+      loadBalance();
+    }
+  }, [userAddress]);
+
+  const loadBalance = async () => {
+    if (!userAddress) return;
+    
+    try {
+      setLoadingBalance(true);
+      const client = new SuiClient({ url: 'https://fullnode.testnet.sui.io' });
+      const balanceData = await client.getBalance({
+        owner: userAddress,
+      });
+      setBalance(Number(balanceData.totalBalance) / 1_000_000_000);
+    } catch (error) {
+      console.error('Error loading balance:', error);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
   if (!userAddress) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -33,9 +60,9 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
 
   return (
     <div>
-      <h2 style={{ color: '#e2e8f0', marginBottom: '24px', fontSize: '28px', fontWeight: '700' }}>
-        Thông tin cá nhân
-      </h2>
+      {/*<h2 style={{ color: '#e2e8f0', marginBottom: '24px', fontSize: '28px', fontWeight: '700' }}>*/}
+      {/*  Thông tin cá nhân*/}
+      {/*</h2>*/}
 
       {/* Wallet Info */}
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -59,8 +86,8 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
       </div>
 
       {/* Statistics Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-        {/* Events Created */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+        {/* SUI Balance */}
         <div
           className="card"
           style={{
@@ -69,9 +96,28 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
           }}
         >
           <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Sự kiện đã tạo
+            Số dư ví
           </div>
           <div style={{ color: '#60a5fa', fontSize: '36px', fontWeight: '800' }}>
+            {loadingBalance ? '...' : balance.toFixed(4)}
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+            SUI
+          </div>
+        </div>
+
+        {/* Events Created */}
+        <div
+          className="card"
+          style={{
+            background: 'linear-gradient(135deg, #a78bfa15 0%, #a78bfa05 100%)',
+            border: '1px solid #a78bfa40',
+          }}
+        >
+          <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Sự kiện đã tạo
+          </div>
+          <div style={{ color: '#a78bfa', fontSize: '36px', fontWeight: '800' }}>
             {myEvents.length}
           </div>
         </div>
@@ -99,14 +145,14 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
         <div
           className="card"
           style={{
-            background: 'linear-gradient(135deg, #a78bfa15 0%, #a78bfa05 100%)',
-            border: '1px solid #a78bfa40',
+            background: 'linear-gradient(135deg, #f472b615 0%, #f472b605 100%)',
+            border: '1px solid #f472b640',
           }}
         >
           <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Vé đã mua
           </div>
-          <div style={{ color: '#a78bfa', fontSize: '36px', fontWeight: '800' }}>
+          <div style={{ color: '#f472b6', fontSize: '36px', fontWeight: '800' }}>
             {myTickets.length}
           </div>
         </div>
@@ -115,14 +161,14 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
         <div
           className="card"
           style={{
-            background: 'linear-gradient(135deg, #f472b615 0%, #f472b605 100%)',
-            border: '1px solid #f472b640',
+            background: 'linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%)',
+            border: '1px solid #fbbf2440',
           }}
         >
           <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Đã chi tiêu
           </div>
-          <div style={{ color: '#f472b6', fontSize: '36px', fontWeight: '800' }}>
+          <div style={{ color: '#fbbf24', fontSize: '36px', fontWeight: '800' }}>
             {totalSpent.toFixed(2)}
           </div>
           <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>

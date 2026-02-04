@@ -109,10 +109,6 @@ export const EventCard: React.FC<EventCardProps> = ({
       >
         {loading ? 'Đang xử lý...' : isSoldOut ? 'Hết vé' : isEventPassed ? 'Đã kết thúc' : 'Mua vé ngay'}
       </button>
-
-      <p style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', textAlign: 'center', fontWeight: '500' }}>
-        Chống phe vé • Không được bán lại cao hơn giá gốc
-      </p>
     </div>
   );
 };
