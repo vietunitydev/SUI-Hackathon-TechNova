@@ -361,7 +361,7 @@ module dynamic_ticketing::dynamic_ticket {
     /// Hoàn tiền vé - Ticket owner có thể yêu cầu refund nếu event bị hủy
     public entry fun refund_ticket(
         ticket: Ticket,
-        event_config: &EventConfig,
+        event_config: &mut EventConfig,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -374,6 +374,9 @@ module dynamic_ticketing::dynamic_ticket {
         let _refund_amount = ticket.original_price;
         let event_id = ticket.event_id;
         let ticket_id = object::uid_to_inner(&ticket.id);
+        
+        // Giảm số vé đã bán để có thể bán lại
+        event_config.sold_tickets = event_config.sold_tickets - 1;
         
         // Destroy ticket
         let Ticket { id, event_id: _, ticket_number: _, original_price: _, state: _, owner: _ } = ticket;

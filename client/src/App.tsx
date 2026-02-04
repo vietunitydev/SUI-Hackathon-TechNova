@@ -312,6 +312,8 @@ function App() {
           onSuccess: () => {
             showMessage('success', 'Hoàn tiền thành công! 💸');
             loadMyTickets();
+            loadEvents(); // Cập nhật số vé đã bán
+            loadMyEvents(); // Cập nhật event của tôi
           },
           onError: (error: Error) => {
             console.error('Error refunding ticket:', error);
