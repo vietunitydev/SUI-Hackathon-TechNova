@@ -38,10 +38,10 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="card">
-      <h2 style={{ marginTop: 0 }}>Tạo Sự Kiện Mới</h2>
+      <h2 style={{ marginTop: 0, color: '#e2e8f0' }}>Tạo Sự Kiện Mới</h2>
 
       <div>
-        <label className="label">Tên sự kiện</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Tên sự kiện</label>
         <input
           type="text"
           name="name"
@@ -54,7 +54,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <div>
-        <label className="label">Thời gian sự kiện</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Thời gian sự kiện</label>
         <input
           type="datetime-local"
           name="eventTime"
@@ -66,7 +66,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <div>
-        <label className="label">Giá vé (SUI)</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Giá vé (SUI)</label>
         <input
           type="number"
           name="originalPrice"
@@ -78,13 +78,13 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
           min="0"
           required
         />
-        <p style={{ fontSize: '12px', color: '#718096', marginTop: '-10px' }}>
+        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '-10px' }}>
           1 SUI = 1,000,000,000 MIST
         </p>
       </div>
 
       <div>
-        <label className="label">Số lượng vé</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Số lượng vé</label>
         <input
           type="number"
           name="totalTickets"
@@ -98,7 +98,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <div>
-        <label className="label">Địa điểm</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Địa điểm</label>
         <input
           type="text"
           name="venue"
@@ -111,7 +111,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <div>
-        <label className="label">Mô tả</label>
+        <label className="label" style={{ color: '#e2e8f0' }}>Mô tả</label>
         <textarea
           name="description"
           className="input"
@@ -125,7 +125,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
       </div>
 
       <button type="submit" className="button" disabled={loading} style={{ width: '100%' }}>
-        {loading ? 'Đang tạo...' : '🎉 Tạo sự kiện'}
+        {loading ? 'Đang tạo...' : 'Tạo sự kiện'}
       </button>
     </form>
   );

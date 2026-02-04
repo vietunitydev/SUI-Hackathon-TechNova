@@ -1,11 +1,11 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0f172a;
   min-height: 100vh;
 }
 
@@ -25,35 +25,50 @@ code {
 }
 
 .card {
-  background: white;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   margin-bottom: 20px;
-}
-
-.button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.button:hover {
-  background: #5568d3;
+.card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.button {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+}
+
+.button:active {
+  transform: translateY(0);
 }
 
 .button:disabled {
-  background: #ccc;
+  background: #334155;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
+  opacity: 0.5;
 }
 
 .button-secondary {
@@ -75,23 +90,33 @@ code {
 .input {
   width: 100%;
   padding: 12px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  border-radius: 12px;
+  font-size: 15px;
   margin-bottom: 16px;
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #6366f1;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.input::placeholder {
+  color: #64748b;
 }
 
 .label {
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #2d3748;
+  color: #e2e8f0;
+  font-size: 14px;
+  letter-spacing: 0.01em;
 }
 
 .ticket-grid {
@@ -153,26 +178,46 @@ code {
 .header {
   text-align: center;
   color: white;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
+  padding: 40px 0;
 }
 
 .header h1 {
-  font-size: 48px;
+  font-size: 56px;
+  font-weight: 800;
   margin-bottom: 16px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
 }
 
 .header p {
-  font-size: 20px;
-  opacity: 0.9;
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 500;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: #64748b;
+  margin-top: 12px;
 }
 
 .countdown {
-  font-size: 32px;
-  font-weight: bold;
-  color: #667eea;
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   text-align: center;
   margin: 20px 0;
+  letter-spacing: 0.02em;
 }
 
 .qr-code-container {
@@ -180,8 +225,9 @@ code {
   justify-content: center;
   margin: 20px 0;
   padding: 20px;
-  background: #f7fafc;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
 }
 
 .event-info {
@@ -193,22 +239,30 @@ code {
 
 .info-item {
   padding: 16px;
-  background: #f7fafc;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.info-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .info-label {
-  font-size: 12px;
-  color: #718096;
+  font-size: 11px;
+  color: #64748b;
   text-transform: uppercase;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
 }
 
 .info-value {
   font-size: 18px;
-  color: #2d3748;
-  font-weight: 600;
+  color: #e2e8f0;
+  font-weight: 700;
 }
 
 .loading {
@@ -219,47 +273,53 @@ code {
 }
 
 .error {
-  background: #fee;
-  color: #c53030;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-weight: 500;
 }
 
 .success {
-  background: #e6fffa;
-  color: #047857;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-weight: 500;
 }
 
 .tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e2e8f0;
+  gap: 12px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .tab {
-  padding: 12px 24px;
+  padding: 16px 28px;
   background: none;
   border: none;
-  color: #718096;
-  font-size: 16px;
+  color: #94a3b8;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  border-bottom: 3px solid transparent;
-  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 .tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
 }
 
 .tab:hover {
-  color: #667eea;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.05);
 }
 
 .wallet-button {

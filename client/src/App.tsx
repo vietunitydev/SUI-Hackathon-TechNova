@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient } from '@mysten/sui/client';
-import { CreateEventForm } from './components/CreateEventForm';
-import { EventCard } from './components/EventCard';
-import { TicketCard } from './components/TicketCard';
-import { EventDetailModal } from './components/EventDetailModal';
+import { Layout } from './components/Layout';
+import { BrowsePage } from './pages/BrowsePage';
+import { MyTicketsPage } from './pages/MyTicketsPage';
+import { MyEventsPage } from './pages/MyEventsPage';
+import { CreateEventPage } from './pages/CreateEventPage';
+import { UserInfoPage } from './pages/UserInfoPage';
+import { EventStatisticsPage } from './pages/EventStatisticsPage';
+import { EventDetailPage } from './pages/EventDetailPage';
 import { ticketingService } from './services/ticketingService';
 import type { EventConfig, Ticket, CreateEventParams } from './types/ticket';
 import './App.css';
@@ -13,13 +17,14 @@ function App() {
   const account = useCurrentAccount();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
-  const [activeTab, setActiveTab] = useState<'events' | 'myTickets' | 'myEvents' | 'createEvent'>('events');
+  const [currentPage, setCurrentPage] = useState<string>('browse');
   const [events, setEvents] = useState<EventConfig[]>([]);
   const [myEvents, setMyEvents] = useState<EventConfig[]>([]);
   const [myTickets, setMyTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventConfig | null>(null);
+  const [statisticsEvent, setStatisticsEvent] = useState<EventConfig | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -134,9 +139,9 @@ function App() {
               console.error('Error extracting event ID:', err);
             }
             
-            showMessage('success', 'Tạo sự kiện thành công! 🎉');
+            showMessage('success', 'Tạo sự kiện thành công!');
             setTimeout(() => loadEvents(), 2000); // Wait a bit for indexing
-            setActiveTab('events');
+            setCurrentPage('myEvents');
           },
           onError: (error: Error) => {
             console.error('Error creating event:', error);
@@ -174,7 +179,7 @@ function App() {
         },
         {
           onSuccess: () => {
-            showMessage('success', 'Mua vé thành công! 🎫');
+            showMessage('success', 'Mua vé thành công!');
             loadEvents();
             loadMyTickets();
           },
@@ -310,7 +315,7 @@ function App() {
         },
         {
           onSuccess: () => {
-            showMessage('success', 'Hoàn tiền thành công! 💸');
+            showMessage('success', 'Hoàn tiền thành công!');
             loadMyTickets();
             loadEvents(); // Cập nhật số vé đã bán
             loadMyEvents(); // Cập nhật event của tôi
@@ -330,258 +335,81 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <div className="wallet-button">
-        <ConnectButton />
-      </div>
-
-      <div className="header">
-        <h1>🎫 Dynamic Ticketing</h1>
-        <p>Hệ thống vé NFT chống phe vé với Sui Blockchain</p>
-        <p style={{ fontSize: '16px', marginTop: '8px' }}>
-          ✨ Vé thay đổi trạng thái tự động | 🛡️ Chống bán lại cao hơn giá gốc | 🏆 POAP kỷ niệm
-        </p>
-        {/*<div style={{ */}
-        {/*  marginTop: '16px', */}
-        {/*  padding: '12px', */}
-        {/*  background: '#fef3c7', */}
-        {/*  border: '2px solid #f59e0b',*/}
-        {/*  borderRadius: '8px',*/}
-        {/*  fontSize: '14px'*/}
-        {/*}}>*/}
-        {/*  ⚠️ <strong>QUAN TRỌNG:</strong> Vui lòng chuyển ví Sui Wallet của bạn sang <strong style={{ color: '#d97706' }}>TESTNET</strong><br/>*/}
-        {/*  📍 Cách chuyển: Mở Sui Wallet → Click network (góc trên phải) → Chọn "Testnet"*/}
-        {/*</div>*/}
-      </div>
-
+    <Layout
+      currentPage={statisticsEvent ? 'statistics' : selectedEvent ? 'eventDetail' : currentPage}
+      onNavigate={(page) => {
+        setCurrentPage(page);
+        setStatisticsEvent(null);
+        setSelectedEvent(null);
+      }}
+      userAddress={account?.address}
+    >
+      {/* Message Toast */}
       {message && (
-        <div className={message.type === 'success' ? 'success' : 'error'}>
+        <div className={`message ${message.type}`}>
           {message.text}
         </div>
       )}
 
-      <div className="card">
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'events' ? 'active' : ''}`}
-            onClick={() => setActiveTab('events')}
-          >
-            📅 Sự kiện
-          </button>
-          <button
-            className={`tab ${activeTab === 'myTickets' ? 'active' : ''}`}
-            onClick={() => setActiveTab('myTickets')}
-          >
-            🎫 Vé của tôi
-          </button>
-          <button
-            className={`tab ${activeTab === 'myEvents' ? 'active' : ''}`}
-            onClick={() => setActiveTab('myEvents')}
-          >
-            🎪 Sự kiện của tôi
-          </button>
-          <button
-            className={`tab ${activeTab === 'createEvent' ? 'active' : ''}`}
-            onClick={() => setActiveTab('createEvent')}
-          >
-            ➕ Tạo sự kiện
-          </button>
-        </div>
-      </div>
-
-      {activeTab === 'events' && (
-        <div>
-          <h2 style={{ color: 'white', marginBottom: '20px' }}>Sự kiện sắp diễn ra</h2>
-          {events.length === 0 ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Chưa có sự kiện nào. Hãy tạo sự kiện đầu tiên! 🎉
-              </p>
-            </div>
-          ) : (
-            <div className="ticket-grid">
-              {events.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onBuyTicket={handleBuyTicket}
-                  loading={loading}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'myTickets' && (
-        <div>
-          <h2 style={{ color: 'white', marginBottom: '20px' }}>Vé của tôi</h2>
-          {!account?.address ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Vui lòng kết nối ví để xem vé của bạn 👛
-              </p>
-            </div>
-          ) : myTickets.length === 0 ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Bạn chưa có vé nào. Hãy mua vé cho sự kiện! 🎫
-              </p>
-            </div>
-          ) : (
-            <div className="ticket-grid">
-              {myTickets.map((ticket) => {
-                const event = events.find((e) => e.id === ticket.eventId);
-                const isOrganizer = event?.organizer === account.address;
-                return (
-                  <TicketCard
-                    key={ticket.id}
-                    ticket={ticket}
-                    event={event || null}
-                    onCheckIn={() => handleCheckIn(ticket.id, ticket.eventId)}
-                    onTransform={() => handleTransform(ticket.id, ticket.eventId)}
-                    onRefund={() => handleRefund(ticket.id, ticket.eventId)}
-                    isOrganizer={isOrganizer}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'myEvents' && (
-        <div>
-          <h2 style={{ color: 'white', marginBottom: '20px' }}>Sự kiện tôi tạo</h2>
-          {!account?.address ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Vui lòng kết nối ví để xem sự kiện của bạn 👛
-              </p>
-            </div>
-          ) : myEvents.length === 0 ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Bạn chưa tạo sự kiện nào. Hãy tạo sự kiện đầu tiên! 🎪
-              </p>
-            </div>
-          ) : (
-            <div className="ticket-grid">
-              {myEvents.map((event) => {
-                const isUpcoming = Date.now() < event.eventTime;
-                return (
-                  <div key={event.id} className="card" style={{ position: 'relative' }}>
-                    <h2 style={{ marginTop: 0, color: '#2d3748' }}>{event.name}</h2>
-                    <p style={{ color: '#718096', marginBottom: '20px' }}>{event.description}</p>
-
-                    <div className="event-info">
-                      <div className="info-item">
-                        <div className="info-label">📅 Thời gian</div>
-                        <div className="info-value" style={{ fontSize: '14px' }}>
-                          {new Date(event.eventTime).toLocaleString('vi-VN')}
-                        </div>
-                      </div>
-
-                      <div className="info-item">
-                        <div className="info-label">📍 Địa điểm</div>
-                        <div className="info-value" style={{ fontSize: '14px' }}>
-                          {event.venue}
-                        </div>
-                      </div>
-
-                      <div className="info-item">
-                        <div className="info-label">💰 Giá vé</div>
-                        <div className="info-value">
-                          {(event.originalPrice / 1_000_000_000).toFixed(2)} SUI
-                        </div>
-                      </div>
-
-                      <div className="info-item">
-                        <div className="info-label">🎫 Vé đã bán</div>
-                        <div className="info-value">
-                          {event.soldTickets} / {event.totalTickets}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{
-                          width: `${(event.soldTickets / event.totalTickets) * 100}%`,
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => setSelectedEvent(event)}
-                        style={{ flex: 1 }}
-                      >
-                        📋 Xem chi tiết
-                      </button>
-
-                      {isUpcoming && (
-                        <button
-                          className="btn btn-danger"
-                          onClick={() => handleCancelEvent(event.id)}
-                          disabled={loading}
-                          style={{
-                            flex: 1,
-                            background: '#f56565',
-                            color: 'white',
-                          }}
-                        >
-                          {loading ? 'Đang xử lý...' : '❌ Hủy'}
-                        </button>
-                      )}
-                    </div>
-                    
-                    {!isUpcoming && (
-                      <div style={{
-                        marginTop: '16px',
-                        padding: '12px',
-                        background: '#e2e8f0',
-                        borderRadius: '8px',
-                        textAlign: 'center',
-                        color: '#718096',
-                      }}>
-                        ✅ Sự kiện đã diễn ra
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'createEvent' && (
-        <div>
-          {!account?.address ? (
-            <div className="card">
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                Vui lòng kết nối ví để tạo sự kiện 👛
-              </p>
-            </div>
-          ) : (
-            <CreateEventForm onSubmit={handleCreateEvent} loading={loading} />
-          )}
-        </div>
-      )}
-
-      {/* Event Detail Modal */}
-      {selectedEvent && (
-        <EventDetailModal
+      {/* Page Rendering */}
+      {statisticsEvent ? (
+        <EventStatisticsPage
+          event={statisticsEvent}
+          tickets={myTickets}
+          onBack={() => {
+            setStatisticsEvent(null);
+            setCurrentPage('myEvents');
+          }}
+        />
+      ) : selectedEvent ? (
+        <EventDetailPage
           event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
+          onBack={() => {
+            setSelectedEvent(null);
+            setCurrentPage('myEvents');
+          }}
           onCheckIn={handleCheckIn}
           loading={loading}
         />
-      )}
-    </div>
+      ) : currentPage === 'browse' ? (
+        <BrowsePage
+          events={events}
+          onBuyTicket={handleBuyTicket}
+          loading={loading}
+        />
+      ) : currentPage === 'myTickets' ? (
+        <MyTicketsPage
+          tickets={myTickets}
+          events={events}
+          userAddress={account?.address}
+          onCheckIn={handleCheckIn}
+          onTransform={handleTransform}
+          onRefund={handleRefund}
+        />
+      ) : currentPage === 'myEvents' ? (
+        <MyEventsPage
+          events={myEvents}
+          userAddress={account?.address}
+          onViewDetails={setSelectedEvent}
+          onViewStatistics={setStatisticsEvent}
+          onCreateEvent={() => setCurrentPage('create')}
+          onCancelEvent={handleCancelEvent}
+          loading={loading}
+        />
+      ) : currentPage === 'create' ? (
+        <CreateEventPage
+          userAddress={account?.address}
+          onSubmit={handleCreateEvent}
+          loading={loading}
+        />
+      ) : currentPage === 'userInfo' ? (
+        <UserInfoPage
+          userAddress={account?.address}
+          events={events}
+          tickets={myTickets}
+        />
+      ) : null}
+    </Layout>
   );
 }
 

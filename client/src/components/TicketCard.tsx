@@ -3,7 +3,6 @@ import { format, differenceInSeconds } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { TICKET_STATE, TICKET_STATE_LABELS } from '../config/constants';
 import type { Ticket, EventConfig } from '../types/ticket';
-import QRCode from 'qrcode';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -27,7 +26,6 @@ export const TicketCard: React.FC<TicketCardProps> = ({
   canSellBack = false,
 }) => {
   const [countdown, setCountdown] = useState<string>('');
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
     if (ticket.state === TICKET_STATE.PENDING && event) {
@@ -50,20 +48,6 @@ export const TicketCard: React.FC<TicketCardProps> = ({
       return () => clearInterval(interval);
     }
   }, [ticket.state, event]);
-
-  useEffect(() => {
-    // Generate QR code
-    QRCode.toDataURL(`TICKET:${ticket.id}`, {
-      width: 200,
-      margin: 2,
-      color: {
-        dark: '#667eea',
-        light: '#ffffff',
-      },
-    })
-      .then(setQrCodeUrl)
-      .catch(console.error);
-  }, [ticket.id]);
 
   const getStateClass = () => {
     switch (ticket.state) {
@@ -102,20 +86,20 @@ export const TicketCard: React.FC<TicketCardProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           {ticket.state === TICKET_STATE.PENDING && (
             <div style={{ textAlign: 'center', color: 'white' }}>
-              <div style={{ fontSize: '48px', fontWeight: 'bold' }}>🎫</div>
-              <div style={{ fontSize: '18px', marginTop: '10px' }}>Vé #{ticket.ticketNumber}</div>
+              <div style={{ fontSize: '56px', fontWeight: '800', opacity: 0.9 }}>#</div>
+              <div style={{ fontSize: '20px', marginTop: '8px', fontWeight: '600', letterSpacing: '0.05em' }}>Vé #{ticket.ticketNumber}</div>
             </div>
           )}
           {ticket.state === TICKET_STATE.CHECKED_IN && (
             <div style={{ textAlign: 'center', color: 'white' }}>
-              <div style={{ fontSize: '48px', fontWeight: 'bold' }}>✓</div>
-              <div style={{ fontSize: '18px', marginTop: '10px' }}>Đã Sử Dụng</div>
+              <div style={{ fontSize: '56px', fontWeight: '800', opacity: 0.9 }}>✓</div>
+              <div style={{ fontSize: '20px', marginTop: '8px', fontWeight: '600', letterSpacing: '0.05em' }}>Đã Sử Dụng</div>
             </div>
           )}
           {ticket.state === TICKET_STATE.COMMEMORATIVE && (
             <div style={{ textAlign: 'center', color: 'white' }}>
-              <div style={{ fontSize: '48px', fontWeight: 'bold' }}>🏆</div>
-              <div style={{ fontSize: '18px', marginTop: '10px' }}>Huy Hiệu Kỷ Niệm</div>
+              <div style={{ fontSize: '56px', fontWeight: '800', opacity: 0.9 }}>★</div>
+              <div style={{ fontSize: '20px', marginTop: '8px', fontWeight: '600', letterSpacing: '0.05em' }}>Huy Hiệu Kỷ Niệm</div>
             </div>
           )}
         </div>
@@ -126,52 +110,28 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           {TICKET_STATE_LABELS[ticket.state]}
         </span>
 
-        <h3 style={{ margin: '12px 0' }}>{event?.name || 'Loading...'}</h3>
+        <h3 style={{ margin: '12px 0', color: '#e2e8f0', fontSize: '18px', fontWeight: '700' }}>{event?.name || 'Loading...'}</h3>
 
-        <div className="info-item" style={{ marginBottom: '12px' }}>
-          <div className="info-label">Ticket ID</div>
-          <div 
-            className="info-value" 
-            style={{ 
-              fontFamily: 'monospace', 
-              fontSize: '11px',
-              wordBreak: 'break-all',
-              background: '#f7fafc',
-              padding: '6px 8px',
-              borderRadius: '4px',
-              border: '1px solid #e2e8f0',
-            }}
-          >
-            {ticket.id}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <div style={{ color: '#64748b', fontSize: '12px', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Số vé</div>
+            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '700' }}>#{ticket.ticketNumber}</div>
           </div>
-        </div>
-
-        <div className="info-item" style={{ marginBottom: '12px' }}>
-          <div className="info-label">Số vé</div>
-          <div className="info-value">#{ticket.ticketNumber}</div>
-        </div>
-
-        <div className="info-item" style={{ marginBottom: '12px' }}>
-          <div className="info-label">Giá gốc</div>
-          <div className="info-value">{(ticket.originalPrice / 1e9).toFixed(2)} SUI</div>
+          <div>
+            <div style={{ color: '#64748b', fontSize: '12px', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Giá</div>
+            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '700' }}>{(ticket.originalPrice / 1e9).toFixed(2)} SUI</div>
+          </div>
         </div>
 
         {event && ticket.state === TICKET_STATE.PENDING && (
           <>
-            <div className="info-item" style={{ marginBottom: '12px' }}>
-              <div className="info-label">Thời gian sự kiện</div>
-              <div className="info-value" style={{ fontSize: '14px' }}>
+            <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(96, 165, 250, 0.1)', borderRadius: '8px', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
+              <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase' }}>Thời gian</div>
+              <div style={{ color: '#60a5fa', fontSize: '14px', fontWeight: '600' }}>
                 {format(event.eventTime, 'dd/MM/yyyy HH:mm', { locale: vi })}
               </div>
+              <div style={{ color: '#94a3b8', fontSize: '13px', marginTop: '8px', fontWeight: '600' }}>{countdown}</div>
             </div>
-
-            <div className="countdown">{countdown}</div>
-
-            {qrCodeUrl && (
-              <div className="qr-code-container">
-                <img src={qrCodeUrl} alt="QR Code" style={{ maxWidth: '150px' }} />
-              </div>
-            )}
 
             {/* Cả organizer và ticket owner đều có thể check-in */}
             {onCheckIn && (
@@ -180,7 +140,7 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 onClick={onCheckIn} 
                 style={{ width: '100%', marginBottom: '8px' }}
               >
-                ✓ {isOrganizer ? 'Check-in vé này' : 'Tự check-in'}
+                {isOrganizer ? 'Check-in vé' : 'Check-in'}
               </button>
             )}
 
@@ -190,13 +150,12 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 className="button" 
                 onClick={onRefund} 
                 style={{ 
-                  width: '100%', 
-                  marginBottom: '8px',
-                  background: '#f56565',
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                   color: 'white',
                 }}
               >
-                💸 Hoàn tiền vé
+                Hoàn tiền
               </button>
             )}
 
@@ -207,53 +166,54 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 style={{ 
                   width: '100%', 
                   marginTop: '8px',
-                  background: '#ed8936',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 }}
               >
-                💰 Bán lại cho hệ thống
+                Bán lại cho hệ thống
               </button>
             )}
 
             {canSellBack && onSellBack && (
               <div style={{ 
-                fontSize: '12px', 
-                color: '#718096', 
+                fontSize: '11px', 
+                color: '#64748b', 
                 marginTop: '8px',
                 textAlign: 'center',
                 padding: '8px',
-                background: '#fef3c7',
-                borderRadius: '4px'
+                background: 'rgba(251, 191, 36, 0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(251, 191, 36, 0.3)',
               }}>
-                🛡️ Vé sẽ tự động đến người đầu hàng chờ (giá gốc)
+                Vé sẽ tự động đến người đầu hàng chờ (giá gốc)
               </div>
             )}
           </>
         )}
 
         {ticket.state === TICKET_STATE.CHECKED_IN && (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <p style={{ color: '#48bb78', fontSize: '16px', fontWeight: '600' }}>
-              ✓ Vé đã được sử dụng thành công!
+          <div style={{ padding: '16px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+            <p style={{ color: '#34d399', fontSize: '14px', fontWeight: '600', margin: 0, marginBottom: canTransform && onTransform ? '12px' : 0 }}>
+              Vé đã sử dụng
             </p>
             {canTransform && onTransform && (
               <button
                 className="button"
                 onClick={onTransform}
-                style={{ width: '100%', marginTop: '12px' }}
+                style={{ 
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                }}
               >
-                🏆 Chuyển thành huy hiệu kỷ niệm
+                Chuyển thành POAP
               </button>
             )}
           </div>
         )}
 
         {ticket.state === TICKET_STATE.COMMEMORATIVE && (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <p style={{ color: '#ed8936', fontSize: '16px', fontWeight: '600' }}>
-              🏆 Huy hiệu kỷ niệm độc đáo!
-            </p>
-            <p style={{ color: '#718096', fontSize: '14px', marginTop: '8px' }}>
-              Cảm ơn bạn đã tham dự sự kiện
+          <div style={{ padding: '16px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: '8px', border: '1px solid rgba(251, 191, 36, 0.2)', textAlign: 'center' }}>
+            <p style={{ color: '#fbbf24', fontSize: '14px', fontWeight: '600', margin: 0 }}>
+              Huy hiệu kỷ niệm POAP
             </p>
           </div>
         )}
