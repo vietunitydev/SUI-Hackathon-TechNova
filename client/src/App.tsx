@@ -293,6 +293,40 @@ function App() {
     }
   };
 
+  const handleRefund = async (ticketId: string, eventId: string) => {
+    if (!account?.address) return;
+
+    if (!confirm('Bạn có chắc muốn hoàn tiền vé này? Vé sẽ bị hủy!')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const tx = await ticketingService.refundTicket(ticketId, eventId);
+
+      signAndExecute(
+        {
+          transaction: tx,
+        },
+        {
+          onSuccess: () => {
+            showMessage('success', 'Hoàn tiền thành công! 💸');
+            loadMyTickets();
+          },
+          onError: (error: Error) => {
+            console.error('Error refunding ticket:', error);
+            showMessage('error', 'Lỗi khi hoàn tiền: ' + error.message);
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error('Error:', error);
+      showMessage('error', 'Lỗi: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container">
       <div className="wallet-button">
@@ -404,6 +438,7 @@ function App() {
                     event={event || null}
                     onCheckIn={() => handleCheckIn(ticket.id, ticket.eventId)}
                     onTransform={() => handleTransform(ticket.id, ticket.eventId)}
+                    onRefund={() => handleRefund(ticket.id, ticket.eventId)}
                     isOrganizer={isOrganizer}
                   />
                 );

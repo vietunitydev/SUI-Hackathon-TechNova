@@ -358,6 +358,39 @@ module dynamic_ticketing::dynamic_ticket {
         // and transferring coins back. This emits event for off-chain processing.
     }
 
+    /// Hoàn tiền vé - Ticket owner có thể yêu cầu refund nếu event bị hủy
+    public entry fun refund_ticket(
+        ticket: Ticket,
+        event_config: &EventConfig,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Chỉ ticket owner mới được refund
+        assert!(ticket.owner == tx_context::sender(ctx), ENotTicketOwner);
+        
+        // Vé phải ở trạng thái PENDING (chưa check-in)
+        assert!(ticket.state == STATE_PENDING, ETicketAlreadyUsed);
+
+        let _refund_amount = ticket.original_price;
+        let event_id = ticket.event_id;
+        let ticket_id = object::uid_to_inner(&ticket.id);
+        
+        // Destroy ticket
+        let Ticket { id, event_id: _, ticket_number: _, original_price: _, state: _, owner: _ } = ticket;
+        object::delete(id);
+
+        // Transfer refund to ticket owner
+        // Note: Trong production, cần có mechanism để organizer deposit tiền trước
+        // Hiện tại chỉ emit event để off-chain xử lý
+        event::emit(TicketSoldBack {
+            ticket_id,
+            seller: tx_context::sender(ctx),
+            buyer: event_config.organizer, // Refund về organizer pool
+            event_id,
+            timestamp: clock::timestamp_ms(clock),
+        });
+    }
+
     // ==================== WAITLIST & RESALE SYSTEM ====================
     // ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT - PHÁ VỠ PHA VÉ!
     

@@ -11,6 +11,7 @@ interface TicketCardProps {
   onCheckIn?: () => void;
   onTransform?: () => void;
   onSellBack?: () => void;
+  onRefund?: () => void;
   isOrganizer?: boolean;
   canSellBack?: boolean;
 }
@@ -21,6 +22,7 @@ export const TicketCard: React.FC<TicketCardProps> = ({
   onCheckIn,
   onTransform,
   onSellBack,
+  onRefund,
   isOrganizer,
   canSellBack = false,
 }) => {
@@ -179,6 +181,22 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 style={{ width: '100%', marginBottom: '8px' }}
               >
                 ✓ {isOrganizer ? 'Check-in vé này' : 'Tự check-in'}
+              </button>
+            )}
+
+            {/* Button hoàn tiền */}
+            {!isOrganizer && onRefund && (
+              <button 
+                className="button" 
+                onClick={onRefund} 
+                style={{ 
+                  width: '100%', 
+                  marginBottom: '8px',
+                  background: '#f56565',
+                  color: 'white',
+                }}
+              >
+                💸 Hoàn tiền vé
               </button>
             )}
 

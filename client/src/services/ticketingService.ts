@@ -136,6 +136,24 @@ export class TicketingService {
   }
 
   /**
+   * Hoàn tiền vé (ticket owner)
+   */
+  async refundTicket(ticketId: string, eventConfigId: string): Promise<Transaction> {
+    const tx = new Transaction();
+
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::refund_ticket`,
+      arguments: [
+        tx.object(ticketId),
+        tx.object(eventConfigId),
+        tx.object('0x6'), // Clock object
+      ],
+    });
+
+    return tx;
+  }
+
+  /**
    * Tham gia hàng chờ để mua vé resale
    */
   async joinWaitlist(params: JoinWaitlistParams): Promise<Transaction> {
