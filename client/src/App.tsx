@@ -8,7 +8,6 @@ import { MyTicketsPage } from './pages/MyTicketsPage';
 import { MyEventsPage } from './pages/MyEventsPage';
 import { CreateEventPage } from './pages/CreateEventPage';
 import { UserInfoPage } from './pages/UserInfoPage';
-import { EventStatisticsPage } from './pages/EventStatisticsPage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { ticketingService } from './services/ticketingService';
 import type { EventConfig, Ticket, CreateEventParams } from './types/ticket';
@@ -262,40 +261,40 @@ function AppContent() {
     }
   };
 
-  const handleCancelEvent = async (eventId: string) => {
-    if (!account?.address) return;
-    
-    if (!confirm('Bạn có chắc muốn hủy sự kiện này? Hành động không thể hoàn tác!')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const tx = await ticketingService.cancelEvent(eventId);
-
-      signAndExecute(
-        {
-          transaction: tx,
-        },
-        {
-          onSuccess: () => {
-            showMessage('success', 'Đã hủy sự kiện thành công!');
-            loadMyEvents();
-            loadEvents();
-          },
-          onError: (error: Error) => {
-            console.error('Error cancelling event:', error);
-            showMessage('error', 'Lỗi khi hủy sự kiện: ' + error.message);
-          },
-        }
-      );
-    } catch (error: any) {
-      console.error('Error:', error);
-      showMessage('error', 'Lỗi: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleCancelEvent = async (eventId: string) => {
+  //   if (!account?.address) return;
+  //
+  //   if (!confirm('Bạn có chắc muốn hủy sự kiện này? Hành động không thể hoàn tác!')) {
+  //     return;
+  //   }
+  //
+  //   try {
+  //     setLoading(true);
+  //     const tx = await ticketingService.cancelEvent(eventId);
+  //
+  //     signAndExecute(
+  //       {
+  //         transaction: tx,
+  //       },
+  //       {
+  //         onSuccess: () => {
+  //           showMessage('success', 'Đã hủy sự kiện thành công!');
+  //           loadMyEvents();
+  //           loadEvents();
+  //         },
+  //         onError: (error: Error) => {
+  //           console.error('Error cancelling event:', error);
+  //           showMessage('error', 'Lỗi khi hủy sự kiện: ' + error.message);
+  //         },
+  //       }
+  //     );
+  //   } catch (error: any) {
+  //     console.error('Error:', error);
+  //     showMessage('error', 'Lỗi: ' + error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleRefund = async (ticketId: string, eventId: string) => {
     if (!account?.address) return;
@@ -368,10 +367,7 @@ function AppContent() {
             events={myEvents}
             userAddress={account?.address}
             onViewDetails={(event) => navigate(`/event/${event.id}`)}
-            onViewStatistics={(event) => navigate(`/event/${event.id}/statistics`)}
             onCreateEvent={() => navigate('/create-event')}
-            onCancelEvent={handleCancelEvent}
-            loading={loading}
           />
         } />
         
@@ -394,15 +390,9 @@ function AppContent() {
         <Route path="/event/:eventId" element={
           <EventDetailPageWrapper 
             events={myEvents}
+            tickets={myTickets}
             onCheckIn={handleCheckIn}
             loading={loading}
-          />
-        } />
-        
-        <Route path="/event/:eventId/statistics" element={
-          <EventStatisticsPageWrapper 
-            events={myEvents}
-            tickets={myTickets}
           />
         } />
       </Routes>
@@ -411,8 +401,9 @@ function AppContent() {
 }
 
 // Wrapper components for route params
-function EventDetailPageWrapper({ events, onCheckIn, loading }: { 
-  events: EventConfig[], 
+function EventDetailPageWrapper({ events, tickets, onCheckIn, loading }: { 
+  events: EventConfig[],
+  tickets: Ticket[],
   onCheckIn: (ticketId: string, eventId: string) => void,
   loading: boolean
 }) {
@@ -425,22 +416,7 @@ function EventDetailPageWrapper({ events, onCheckIn, loading }: {
       onBack={() => {}}
       onCheckIn={onCheckIn}
       loading={loading}
-    />
-  );
-}
-
-function EventStatisticsPageWrapper({ events, tickets }: { 
-  events: EventConfig[], 
-  tickets: Ticket[]
-}) {
-  const { eventId } = useParams<{ eventId: string }>();
-  const event = events.find(e => e.id === eventId);
-  
-  return (
-    <EventStatisticsPage
-      event={event || null}
-      tickets={tickets}
-      onBack={() => {}}
+      allTickets={tickets}
     />
   );
 }

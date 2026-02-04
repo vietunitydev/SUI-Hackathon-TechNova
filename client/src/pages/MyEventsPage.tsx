@@ -5,20 +5,14 @@ interface MyEventsPageProps {
   events: EventConfig[];
   userAddress?: string;
   onViewDetails: (event: EventConfig) => void;
-  onViewStatistics: (event: EventConfig) => void;
   onCreateEvent: () => void;
-  onCancelEvent: (eventId: string) => void;
-  loading: boolean;
 }
 
 export const MyEventsPage: React.FC<MyEventsPageProps> = ({
   events,
   userAddress,
   onViewDetails,
-  onViewStatistics,
   onCreateEvent,
-  onCancelEvent,
-  loading,
 }) => {
   if (!userAddress) {
     return (
@@ -214,17 +208,13 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
               <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
                 <button
                   className="button"
-                  onClick={() => onViewStatistics(event)}
+                  onClick={() => onViewDetails(event)}
                   style={{
-                    flex: 1,
-                    background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
                   }}
                 >
-                  Thống kê
-                </button>
-
-                <button className="button" onClick={() => onViewDetails(event)} style={{ flex: 1 }}>
-                  Chi tiết
+                  Xem chi tiết
                 </button>
               </div>
             </div>
