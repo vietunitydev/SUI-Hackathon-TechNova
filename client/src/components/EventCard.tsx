@@ -13,9 +13,9 @@ export const EventCard: React.FC<EventCardProps> = ({
   onBuyTicket,
   loading = false,
 }) => {
-  const soldPercentage = (event.mintedTickets / event.totalTickets) * 100;
+  const soldPercentage = (event.activeTickets / event.totalTickets) * 100;
   const isEventPassed = Date.now() > event.eventTime;
-  const isSoldOut = event.mintedTickets >= event.totalTickets;
+  const isSoldOut = event.activeTickets >= event.totalTickets;
 
   return (
     <div className="card" style={{ position: 'relative' }}>
@@ -68,7 +68,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         <div className="info-item">
           <div className="info-label">Số vé</div>
           <div className="info-value">
-            {event.mintedTickets} / {event.totalTickets}
+            {event.activeTickets} / {event.totalTickets}
           </div>
         </div>
       </div>

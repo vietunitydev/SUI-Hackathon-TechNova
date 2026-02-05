@@ -245,8 +245,8 @@ module dynamic_ticketing::dynamic_ticket {
         // Kiểm tra giá tiền
         assert!(coin::value(&payment) >= event_config.original_price, EInvalidPrice);
 
-        // CRITICAL: Kiểm tra còn vé không
-        assert!(event_config.minted_tickets < event_config.total_tickets, ESoldOut);
+        // CRITICAL: Kiểm tra còn vé không (dùng active_tickets để cho phép bán lại sau refund)
+        assert!(event_config.active_tickets < event_config.total_tickets, ESoldOut);
 
         // Cập nhật số vé
         event_config.minted_tickets = event_config.minted_tickets + 1;

@@ -2,7 +2,7 @@
 export const SUI_NETWORK = 'testnet';
 
 // Package ID - Deployed on Sui Testnet
-export const PACKAGE_ID = '0x6839d91698158e237465c22e156fb9785b284d821e48acff0059773140f85295';
+export const PACKAGE_ID = '0xb45f74a3fa39d763f8dc632ab755423dc7169f9ab5c6829dea7e1e21b29d948f';
 
 // Module names
 export const MODULE_NAME = 'dynamic_ticket';
