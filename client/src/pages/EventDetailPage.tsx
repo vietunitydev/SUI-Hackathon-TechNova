@@ -301,23 +301,32 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
           </div>
 
           {/* Organizer Withdraw Button */}
-          {account?.address === event.organizer && 
-           event.treasuryId && 
-           new Date(event.eventTime) < new Date() && (
+          {account?.address === event.organizer && event.treasuryId && (
             <div
               className="card"
               style={{
                 marginTop: '24px',
-                background: 'linear-gradient(135deg, #22c55e15 0%, #22c55e05 100%)',
-                border: '1px solid #22c55e40',
+                background: new Date(event.eventTime) < new Date()
+                  ? 'linear-gradient(135deg, #22c55e15 0%, #22c55e05 100%)'
+                  : 'linear-gradient(135deg, #fbbf2415 0%, #fbbf2405 100%)',
+                border: new Date(event.eventTime) < new Date()
+                  ? '1px solid #22c55e40'
+                  : '1px solid #fbbf2440',
               }}
             >
               <div style={{ marginBottom: '16px' }}>
-                <div style={{ color: '#22c55e', fontWeight: '700', fontSize: '18px', marginBottom: '8px' }}>
-                  💰 Rút tiền về ví
+                <div style={{ 
+                  color: new Date(event.eventTime) < new Date() ? '#22c55e' : '#fbbf24', 
+                  fontWeight: '700', 
+                  fontSize: '18px', 
+                  marginBottom: '8px' 
+                }}>
+                  Rút tiền về ví
                 </div>
                 <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>
-                  Sự kiện đã kết thúc. Bạn có thể rút toàn bộ doanh thu về ví của mình.
+                  {new Date(event.eventTime) < new Date()
+                    ? 'Sự kiện đã kết thúc. Bạn có thể rút toàn bộ doanh thu về ví.'
+                    : `Event chưa kết thúc. Thời gian event: ${new Date(event.eventTime).toLocaleString('vi-VN')}. Nút rút tiền sẽ kích hoạt sau khi event kết thúc.`}
                 </div>
                 <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '600' }}>
                   Doanh thu: {revenue.toFixed(2)} SUI
@@ -325,24 +334,24 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
               </div>
               <button
                 onClick={handleWithdraw}
-                disabled={isWithdrawing || loading}
+                disabled={isWithdrawing || loading || new Date(event.eventTime) >= new Date()}
                 style={{
                   width: '100%',
                   padding: '16px',
                   fontSize: '16px',
                   fontWeight: '700',
-                  background: isWithdrawing 
+                  background: (isWithdrawing || loading || new Date(event.eventTime) >= new Date())
                     ? 'rgba(148, 163, 184, 0.5)' 
                     : 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)',
                   border: 'none',
                   borderRadius: '12px',
                   color: 'white',
-                  cursor: isWithdrawing || loading ? 'not-allowed' : 'pointer',
+                  cursor: (isWithdrawing || loading || new Date(event.eventTime) >= new Date()) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.3s ease',
                   boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isWithdrawing && !loading) {
+                  if (!isWithdrawing && !loading && new Date(event.eventTime) < new Date()) {
                     e.currentTarget.style.transform = 'translateY(-2px)';
                     e.currentTarget.style.boxShadow = '0 6px 16px rgba(34, 197, 94, 0.4)';
                   }
@@ -352,7 +361,11 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(34, 197, 94, 0.3)';
                 }}
               >
-                {isWithdrawing ? '⏳ Đang rút tiền...' : '💸 Rút tiền ngay'}
+                {isWithdrawing 
+                  ? 'Đang rút tiền...'
+                  : new Date(event.eventTime) >= new Date()
+                  ? 'Chờ event kết thúc'
+                  : 'Rút tiền ngay'}
               </button>
             </div>
           )}

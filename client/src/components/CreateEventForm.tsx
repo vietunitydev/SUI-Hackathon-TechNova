@@ -28,12 +28,26 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'eventTime' ? new Date(value).getTime() : 
-              name === 'originalPrice' || name === 'totalTickets' ? Number(value) : 
-              value,
-    }));
+    
+    if (name === 'eventTime') {
+      // datetime-local returns "YYYY-MM-DDTHH:mm" in LOCAL timezone
+      // We need to keep it as local time, not convert to UTC
+      const localDate = new Date(value);
+      setFormData((prev) => ({
+        ...prev,
+        eventTime: localDate.getTime(),
+      }));
+    } else if (name === 'originalPrice' || name === 'totalTickets') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: Number(value),
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   return (
@@ -59,7 +73,7 @@ export const CreateEventForm: React.FC<CreateEventFormProps> = ({
           type="datetime-local"
           name="eventTime"
           className="input"
-          value={new Date(formData.eventTime).toISOString().slice(0, 16)}
+          value={new Date(formData.eventTime - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
           onChange={handleChange}
           required
         />

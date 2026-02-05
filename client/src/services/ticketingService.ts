@@ -166,6 +166,7 @@ export class TicketingService {
       arguments: [
         tx.object(eventConfigId),
         tx.object(treasuryId),
+        tx.object('0x6'), // Clock object
       ],
     });
 
