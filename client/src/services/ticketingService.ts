@@ -72,6 +72,7 @@ export class TicketingService {
       target: `${PACKAGE_ID}::${MODULE_NAME}::mint_ticket`,
       arguments: [
         tx.object(params.eventConfigId),
+        tx.object(params.treasuryId),
         coin,
         tx.object('0x6'), // Clock object
       ],
@@ -138,7 +139,7 @@ export class TicketingService {
   /**
    * Hoàn tiền vé (ticket owner)
    */
-  async refundTicket(ticketId: string, eventConfigId: string): Promise<Transaction> {
+  async refundTicket(ticketId: string, eventConfigId: string, treasuryId: string): Promise<Transaction> {
     const tx = new Transaction();
 
     tx.moveCall({
@@ -146,6 +147,7 @@ export class TicketingService {
       arguments: [
         tx.object(ticketId),
         tx.object(eventConfigId),
+        tx.object(treasuryId),
         tx.object('0x6'), // Clock object
       ],
     });
@@ -159,10 +161,16 @@ export class TicketingService {
   async joinWaitlist(params: JoinWaitlistParams): Promise<Transaction> {
     const tx = new Transaction();
 
+    // Split coin để deposit
+    const [coin] = tx.splitCoins(tx.gas, [tx.pure(bcs.U64.serialize(params.payment))]);
+
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::join_waitlist`,
       arguments: [
         tx.object(params.waitlistId),
+        tx.object(params.depositEscrowId),
+        tx.object(params.eventConfigId),
+        coin,
       ],
     });
 
@@ -178,16 +186,13 @@ export class TicketingService {
   ): Promise<Transaction> {
     const tx = new Transaction();
 
-    // Split coin để thanh toán (system cần coin để hoàn tiền)
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure(bcs.U64.serialize(params.payment))]);
-
     tx.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::sell_back_ticket`,
       arguments: [
         tx.object(params.ticket.id), // Ticket object ID
         tx.object(params.waitlistId),
+        tx.object(params.depositEscrowId),
         tx.object(params.eventConfigId),
-        coin,
         tx.object('0x6'), // Clock object
       ],
     });
@@ -251,7 +256,8 @@ export class TicketingService {
           eventTime: Number(fields.event_time),  // Convert to Number for date-fns
           originalPrice: Number(fields.original_price),
           totalTickets: Number(fields.total_tickets),
-          soldTickets: Number(fields.sold_tickets),
+          mintedTickets: Number(fields.minted_tickets),
+          activeTickets: Number(fields.active_tickets),
           venue: fields.venue,
           description: fields.description,
         };
@@ -354,10 +360,16 @@ export class TicketingService {
         try {
           const parsedJson = eventData.parsedJson as any;
           const eventId = parsedJson.event_id;
+          const treasuryId = parsedJson.treasury_id;
+          const waitlistId = parsedJson.waitlist_id;
+          const depositEscrowId = parsedJson.deposit_escrow_id;
 
           // Fetch full event details
           const event = await this.getEvent(eventId);
           if (event) {
+            event.treasuryId = treasuryId;
+            event.waitlistId = waitlistId;
+            event.depositEscrowId = depositEscrowId;
             events.push(event);
           }
         } catch (err) {

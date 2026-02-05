@@ -7,9 +7,13 @@ export interface EventConfig {
   eventTime: number;
   originalPrice: number;
   totalTickets: number;
-  soldTickets: number;
+  mintedTickets: number;
+  activeTickets: number;
   venue: string;
   description: string;
+  treasuryId?: string;
+  waitlistId?: string;
+  depositEscrowId?: string;
 }
 
 export interface Ticket {
@@ -46,6 +50,7 @@ export interface CreateEventParams {
 
 export interface MintTicketParams {
   eventConfigId: string;
+  treasuryId: string;
   payment: number;
 }
 
@@ -68,13 +73,16 @@ export interface WaitingList {
 
 export interface JoinWaitlistParams {
   waitlistId: string;
+  depositEscrowId: string;
+  eventConfigId: string;
+  payment: number;
 }
 
 export interface SellBackTicketParams {
   ticket: any; // Ticket object
   waitlistId: string;
+  depositEscrowId: string;
   eventConfigId: string;
-  payment: number;
 }
 
 // Event types emitted by smart contract
@@ -83,6 +91,9 @@ export interface EventCreatedEvent {
   name: string;
   organizer: string;
   eventTime: number;
+  treasuryId: string;
+  waitlistId: string;
+  depositEscrowId: string;
 }
 
 export interface TicketMintedEvent {

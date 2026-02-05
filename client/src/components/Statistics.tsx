@@ -11,8 +11,8 @@ export const Statistics: React.FC<StatisticsProps> = ({ events, tickets }) => {
   // Calculate statistics
   const totalEvents = events.length;
   const activeEvents = events.filter(e => Date.now() < e.eventTime).length;
-  const totalTicketsSold = events.reduce((sum, e) => sum + e.soldTickets, 0);
-  const totalRevenue = events.reduce((sum, e) => sum + (e.soldTickets * e.originalPrice), 0) / 1e9;
+  const totalTicketsSold = events.reduce((sum, e) => sum + e.mintedTickets, 0);
+  const totalRevenue = events.reduce((sum, e) => sum + (e.mintedTickets * e.originalPrice), 0) / 1e9;
   
   const pendingTickets = tickets.filter(t => t.state === TICKET_STATE.PENDING).length;
   const checkedInTickets = tickets.filter(t => t.state === TICKET_STATE.CHECKED_IN).length;

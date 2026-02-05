@@ -164,10 +164,16 @@ function AppContent() {
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
 
+    if (!event.treasuryId) {
+      showMessage('error', 'Không tìm thấy treasury ID');
+      return;
+    }
+
     try {
       setLoading(true);
       const tx = await ticketingService.mintTicket({
         eventConfigId: eventId,
+        treasuryId: event.treasuryId,
         payment: event.originalPrice,
       });
 
@@ -303,9 +309,15 @@ function AppContent() {
       return;
     }
 
+    const event = events.find((e) => e.id === eventId);
+    if (!event || !event.treasuryId) {
+      showMessage('error', 'Không tìm thấy treasury ID');
+      return;
+    }
+
     try {
       setLoading(true);
-      const tx = await ticketingService.refundTicket(ticketId, eventId);
+      const tx = await ticketingService.refundTicket(ticketId, eventId, event.treasuryId);
 
       signAndExecute(
         {

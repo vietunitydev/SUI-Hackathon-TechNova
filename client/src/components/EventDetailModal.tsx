@@ -80,7 +80,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
     alert('📷 Tính năng quét QR sẽ được thêm trong phiên bản tiếp theo!\n\nHiện tại vui lòng nhập Ticket ID thủ công.');
   };
 
-  const soldTickets = eventTickets.length;
+  const mintedTickets = eventTickets.length;
   const checkedInTickets = eventTickets.filter(t => t.state >= 1).length;
 
   return (
@@ -146,7 +146,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             }}
           >
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2d3748' }}>
-              {soldTickets}
+              {mintedTickets}
             </div>
             <div style={{ fontSize: '14px', color: '#718096', marginTop: '4px' }}>
               Vé đã bán
@@ -178,7 +178,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             }}
           >
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#d97706' }}>
-              {soldTickets - checkedInTickets}
+              {mintedTickets - checkedInTickets}
             </div>
             <div style={{ fontSize: '14px', color: '#b45309', marginTop: '4px' }}>
               Chưa check-in

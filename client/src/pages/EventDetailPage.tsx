@@ -94,8 +94,8 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
   };
 
   const checkedInTickets = eventTickets.filter(t => t.state >= 1).length;
-  const soldPercentage = (event.soldTickets / event.totalTickets) * 100;
-  const revenue = (event.soldTickets * event.originalPrice) / 1_000_000_000;
+  const soldPercentage = (event.mintedTickets / event.totalTickets) * 100;
+  const revenue = (event.mintedTickets * event.originalPrice) / 1_000_000_000;
 
   // Statistics data
   const userEventTickets = allTickets.filter(t => t.eventId === event.id);
@@ -105,8 +105,8 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
 
   const stats = [
     { label: 'Tổng vé', value: event.totalTickets, color: '#60a5fa' },
-    { label: 'Đã bán', value: event.soldTickets, color: '#34d399' },
-    { label: 'Còn lại', value: event.totalTickets - event.soldTickets, color: '#fbbf24' },
+    { label: 'Đã bán', value: event.mintedTickets, color: '#34d399' },
+    { label: 'Còn lại', value: event.totalTickets - event.mintedTickets, color: '#fbbf24' },
     { label: 'Check-in', value: checkedInTickets, color: '#f472b6' },
   ];
 
@@ -250,7 +250,7 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
               </div>
             </div>
             <div style={{ marginTop: '12px', color: '#94a3b8', fontSize: '14px' }}>
-              {event.soldTickets} / {event.totalTickets} vé đã bán
+              {event.mintedTickets} / {event.totalTickets} vé đã bán
             </div>
           </div>
 

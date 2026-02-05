@@ -110,7 +110,7 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
       <div className="ticket-grid">
         {events.map((event) => {
           const isUpcoming = Date.now() < event.eventTime;
-          const soldPercentage = (event.soldTickets / event.totalTickets) * 100;
+          const soldPercentage = (event.mintedTickets / event.totalTickets) * 100;
 
           return (
             <div key={event.id} className="card" style={{ position: 'relative' }}>
@@ -169,7 +169,7 @@ export const MyEventsPage: React.FC<MyEventsPageProps> = ({
                 <div className="info-item">
                   <div className="info-label">Vé đã bán</div>
                   <div className="info-value">
-                    {event.soldTickets} / {event.totalTickets}
+                    {event.mintedTickets} / {event.totalTickets}
                   </div>
                 </div>
               </div>

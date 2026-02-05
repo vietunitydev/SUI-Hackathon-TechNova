@@ -50,7 +50,7 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
   const myTickets = tickets.filter(t => t.owner === userAddress);
   
   const totalRevenue = myEvents.reduce((sum, event) => {
-    return sum + (event.soldTickets * event.originalPrice);
+    return sum + (event.mintedTickets * event.originalPrice);
   }, 0) / 1_000_000_000;
 
   const totalSpent = myTickets.reduce((sum, ticket) => {
@@ -239,8 +239,8 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
           </h3>
           <div style={{ display: 'grid', gap: '12px' }}>
             {myEvents.map((event) => {
-              const soldPercentage = (event.soldTickets / event.totalTickets) * 100;
-              const revenue = (event.soldTickets * event.originalPrice) / 1_000_000_000;
+              const soldPercentage = (event.mintedTickets / event.totalTickets) * 100;
+              const revenue = (event.mintedTickets * event.originalPrice) / 1_000_000_000;
               
               return (
                 <div key={event.id} className="card">
@@ -266,7 +266,7 @@ export const UserInfoPage: React.FC<UserInfoPageProps> = ({ userAddress, events,
                   <div style={{ marginTop: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <span style={{ color: '#94a3b8', fontSize: '13px' }}>
-                        {event.soldTickets} / {event.totalTickets} vé
+                        {event.mintedTickets} / {event.totalTickets} vé
                       </span>
                       <span style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '600' }}>
                         {soldPercentage.toFixed(0)}%

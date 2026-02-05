@@ -6,8 +6,6 @@ module dynamic_ticketing::dynamic_ticket {
     use sui::event;
     use sui::clock::{Self, Clock};
     use sui::dynamic_field as df;
-    use sui::kiosk::{Self, Kiosk, KioskOwnerCap};
-    use sui::transfer_policy::{Self, TransferPolicy, TransferPolicyCap};
     use sui::package::{Self, Publisher};
     use sui::display;
     use sui::coin::{Self, Coin};
@@ -20,11 +18,12 @@ module dynamic_ticketing::dynamic_ticket {
     const EEventAlreadyStarted: u64 = 2;
     const ETicketAlreadyUsed: u64 = 3;
     const EInvalidPrice: u64 = 4;
-    const EPriceExceedsOriginal: u64 = 5;
-    const ENotTicketOwner: u64 = 6;
-    const EWaitlistEmpty: u64 = 7;
-    const EAlreadyInWaitlist: u64 = 8;
-    const ECannotSellCheckedInTicket: u64 = 9;
+    const ENotTicketOwner: u64 = 5;
+    const EWaitlistEmpty: u64 = 6;
+    const EAlreadyInWaitlist: u64 = 7;
+    const ECannotSellCheckedInTicket: u64 = 8;
+    const EInsufficientTreasury: u64 = 9;
+    const ESoldOut: u64 = 10;
 
     // ==================== Ticket States ====================
     const STATE_PENDING: u8 = 0;      // Trước sự kiện
@@ -44,7 +43,8 @@ module dynamic_ticketing::dynamic_ticket {
         event_time: u64,          // Timestamp của sự kiện
         original_price: u64,      // Giá gốc để kiểm soát scalping
         total_tickets: u64,
-        sold_tickets: u64,
+        minted_tickets: u64,      // Tổng số vé đã tạo (không bao giờ giảm)
+        active_tickets: u64,      // Số vé hiện đang active (giảm khi refund)
         venue: String,
         description: String,
     }
@@ -63,6 +63,13 @@ module dynamic_ticketing::dynamic_ticket {
         deposits: table::Table<address, Coin<SUI>>,  // address -> deposited coin
     }
 
+    /// Event Treasury - Quỹ chứa tiền bán vé, dùng cho refund và withdraw sau event
+    public struct EventTreasury has key, store {
+        id: UID,
+        event_id: ID,
+        balance: Coin<SUI>,  // Tổng tiền từ ticket sales
+    }
+
     /// Dynamic Ticket NFT
     public struct Ticket has key, store {
         id: UID,
@@ -70,7 +77,7 @@ module dynamic_ticketing::dynamic_ticket {
         ticket_number: u64,
         original_price: u64,
         state: u8,
-        owner: address,
+        // owner field REMOVED - use Sui ownership system instead
     }
 
     /// Dynamic Field Key cho ticket state
@@ -91,6 +98,9 @@ module dynamic_ticketing::dynamic_ticket {
         name: String,
         organizer: address,
         event_time: u64,
+        treasury_id: ID,
+        waitlist_id: ID,
+        deposit_escrow_id: ID,
     }
 
     public struct TicketMinted has copy, drop {
@@ -172,19 +182,13 @@ module dynamic_ticketing::dynamic_ticket {
             event_time,
             original_price,
             total_tickets,
-            sold_tickets: 0,
+            minted_tickets: 0,
+            active_tickets: 0,
             venue: string::utf8(venue),
             description: string::utf8(description),
         };
 
         let event_id = object::uid_to_inner(&event_config.id);
-
-        event::emit(EventCreated {
-            event_id,
-            name: event_config.name,
-            organizer: event_config.organizer,
-            event_time,
-        });
 
         // Tạo WaitingList cho event này
         let waitlist = WaitingList {
@@ -200,13 +204,36 @@ module dynamic_ticketing::dynamic_ticket {
             deposits: table::new(ctx),
         };
 
+        // Tạo EventTreasury để quản lý quỹ bán vé
+        let treasury = EventTreasury {
+            id: object::new(ctx),
+            event_id,
+            balance: coin::zero(ctx),
+        };
+
+        let treasury_id = object::uid_to_inner(&treasury.id);
+        let waitlist_id = object::uid_to_inner(&waitlist.id);
+        let deposit_escrow_id = object::uid_to_inner(&deposit_escrow.id);
+
+        event::emit(EventCreated {
+            event_id,
+            name: event_config.name,
+            organizer: event_config.organizer,
+            event_time,
+            treasury_id,
+            waitlist_id,
+            deposit_escrow_id,
+        });
+
         transfer::share_object(event_config);
         transfer::share_object(waitlist);
         transfer::share_object(deposit_escrow);
+        transfer::share_object(treasury);
     }
 
     public entry fun mint_ticket(
         event_config: &mut EventConfig,
+        treasury: &mut EventTreasury,
         payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
@@ -218,18 +245,21 @@ module dynamic_ticketing::dynamic_ticket {
         // Kiểm tra giá tiền
         assert!(coin::value(&payment) >= event_config.original_price, EInvalidPrice);
 
-        // Cập nhật số vé đã bán
-        event_config.sold_tickets = event_config.sold_tickets + 1;
-        let ticket_number = event_config.sold_tickets;
+        // CRITICAL: Kiểm tra còn vé không
+        assert!(event_config.minted_tickets < event_config.total_tickets, ESoldOut);
 
-        // Tạo ticket
+        // Cập nhật số vé
+        event_config.minted_tickets = event_config.minted_tickets + 1;
+        event_config.active_tickets = event_config.active_tickets + 1;
+        let ticket_number = event_config.minted_tickets;
+
+        // Tạo ticket (KHÔNG lưu owner - dùng Sui ownership)
         let mut ticket = Ticket {
             id: object::new(ctx),
             event_id: object::uid_to_inner(&event_config.id),
             ticket_number,
             original_price: event_config.original_price,
             state: STATE_PENDING,
-            owner: tx_context::sender(ctx),
         };
 
         let ticket_id = object::uid_to_inner(&ticket.id);
@@ -253,8 +283,8 @@ module dynamic_ticketing::dynamic_ticket {
             ticket_number,
         });
 
-        // Chuyển tiền cho organizer
-        transfer::public_transfer(payment, event_config.organizer);
+        // Nạp tiền vào treasury (để có thể refund)
+        coin::join(&mut treasury.balance, payment);
 
         // Chuyển ticket cho người mua
         transfer::public_transfer(ticket, tx_context::sender(ctx));
@@ -271,11 +301,8 @@ module dynamic_ticketing::dynamic_ticket {
     ) {
         let sender = tx_context::sender(ctx);
         
-        // Cho phép cả organizer và ticket owner check-in
-        assert!(
-            sender == event_config.organizer || sender == ticket.owner, 
-            ENotEventOrganizer
-        );
+        // Chỉ organizer mới check-in được (ticket owner pass &mut Ticket = auto-verified)
+        assert!(sender == event_config.organizer, ENotEventOrganizer);
         
         // Kiểm tra vé chưa sử dụng
         assert!(ticket.state == STATE_PENDING, ETicketAlreadyUsed);
@@ -315,8 +342,7 @@ module dynamic_ticketing::dynamic_ticket {
         let current_time = clock::timestamp_ms(clock);
         assert!(current_time > event_config.event_time + 86400000, EEventNotStarted); // +1 ngày
 
-        // Kiểm tra owner
-        assert!(ticket.owner == tx_context::sender(ctx), ENotTicketOwner);
+        // Ticket owner được auto-verified qua &mut Ticket
 
         // Chuyển sang state commemorative
         ticket.state = STATE_COMMEMORATIVE;
@@ -354,7 +380,7 @@ module dynamic_ticketing::dynamic_ticket {
         let current_time = clock::timestamp_ms(clock);
         assert!(current_time < event_config.event_time, EEventAlreadyStarted);
 
-        let refunded_amount = event_config.sold_tickets * event_config.original_price;
+        let refunded_amount = event_config.active_tickets * event_config.original_price;
         
         event::emit(EventCancelled {
             event_id: object::uid_to_inner(&event_config.id),
@@ -368,39 +394,75 @@ module dynamic_ticketing::dynamic_ticket {
     }
 
     /// Hoàn tiền vé - Ticket owner có thể yêu cầu refund nếu event bị hủy
+    /// 100% on-chain, tiền từ EventTreasury
     public entry fun refund_ticket(
         ticket: Ticket,
         event_config: &mut EventConfig,
+        treasury: &mut EventTreasury,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // Chỉ ticket owner mới được refund
-        assert!(ticket.owner == tx_context::sender(ctx), ENotTicketOwner);
+        let owner = tx_context::sender(ctx);
+        
+        // Ticket owner được auto-verified qua owned Ticket parameter
         
         // Vé phải ở trạng thái PENDING (chưa check-in)
         assert!(ticket.state == STATE_PENDING, ETicketAlreadyUsed);
 
-        let _refund_amount = ticket.original_price;
+        // Event phải chưa bắt đầu (chỉ refund trước event)
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time < event_config.event_time, EEventAlreadyStarted);
+
+        let refund_amount = ticket.original_price;
         let event_id = ticket.event_id;
         let ticket_id = object::uid_to_inner(&ticket.id);
         
-        // Giảm số vé đã bán để có thể bán lại
-        event_config.sold_tickets = event_config.sold_tickets - 1;
+        // Kiểm tra treasury đủ tiền
+        assert!(coin::value(&treasury.balance) >= refund_amount, EInsufficientTreasury);
+        
+        // Giảm active_tickets (minted_tickets KHÔNG giảm)
+        event_config.active_tickets = event_config.active_tickets - 1;
         
         // Destroy ticket
-        let Ticket { id, event_id: _, ticket_number: _, original_price: _, state: _, owner: _ } = ticket;
+        let Ticket { id, event_id: _, ticket_number: _, original_price: _, state: _ } = ticket;
         object::delete(id);
 
-        // Transfer refund to ticket owner
-        // Note: Trong production, cần có mechanism để organizer deposit tiền trước
-        // Hiện tại chỉ emit event để off-chain xử lý
+        // REFUND THỰC TẾ từ treasury
+        let refund_coin = coin::split(&mut treasury.balance, refund_amount, ctx);
+        transfer::public_transfer(refund_coin, owner);
+        
         event::emit(TicketSoldBack {
             ticket_id,
-            seller: tx_context::sender(ctx),
-            buyer: event_config.organizer, // Refund về organizer pool
+            seller: owner,
+            buyer: event_config.organizer,
             event_id,
-            timestamp: clock::timestamp_ms(clock),
+            timestamp: current_time,
         });
+    }
+
+    /// Organizer rút tiền từ treasury SAU KHI event kết thúc
+    /// Đảm bảo không còn refund nào có thể xảy ra
+    public entry fun organizer_withdraw(
+        event_config: &EventConfig,
+        treasury: &mut EventTreasury,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        
+        // Chỉ organizer mới được rút
+        assert!(sender == event_config.organizer, ENotEventOrganizer);
+        
+        // Event phải đã kết thúc (không còn refund)
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time > event_config.event_time, EEventNotStarted);
+        
+        // Rút toàn bộ số dư
+        let amount = coin::value(&treasury.balance);
+        if (amount > 0) {
+            let withdrawal = coin::split(&mut treasury.balance, amount, ctx);
+            transfer::public_transfer(withdrawal, sender);
+        };
     }
 
     // ==================== WAITLIST & RESALE SYSTEM WITH ESCROW ====================
@@ -447,6 +509,9 @@ module dynamic_ticketing::dynamic_ticket {
     ) {
         let seller = tx_context::sender(ctx);
         
+        // CRITICAL: Seller được auto-verified qua owned Ticket parameter
+        // Chỉ ai sở hữu ticket mới pass được `ticket: Ticket`
+        
         // Kiểm tra: Chỉ vé PENDING mới bán được
         assert!(ticket.state == STATE_PENDING, ECannotSellCheckedInTicket);
         
@@ -466,8 +531,7 @@ module dynamic_ticketing::dynamic_ticket {
         // Transfer payment cho SELLER
         transfer::public_transfer(buyer_payment, seller);
         
-        // Cập nhật owner của ticket
-        ticket.owner = buyer;
+        // Ticket owner sẽ tự động chuyển qua transfer::public_transfer
         let ticket_id = object::uid_to_inner(&ticket.id);
         
         // Cập nhật metadata
@@ -533,30 +597,6 @@ module dynamic_ticketing::dynamic_ticket {
         // Refund deposit
         let refund = table::remove(&mut deposit_escrow.deposits, user);
         transfer::public_transfer(refund, user);
-    }
-
-    // ==================== Kiosk Anti-Scalping ====================
-    
-    /// Tạo transfer policy ngăn chặn bán lại cao hơn giá gốc
-    public fun create_anti_scalping_policy(
-        publisher: &Publisher,
-        ctx: &mut TxContext
-    ): (TransferPolicy<Ticket>, TransferPolicyCap<Ticket>) {
-        let (policy, cap) = transfer_policy::new<Ticket>(publisher, ctx);
-        (policy, cap)
-    }
-
-    /// Place ticket vào Kiosk với giá tối đa
-    public entry fun list_ticket_in_kiosk(
-        kiosk: &mut Kiosk,
-        cap: &KioskOwnerCap,
-        ticket: Ticket,
-        price: u64,
-    ) {
-        // Kiểm tra giá không vượt quá giá gốc (chống scalping)
-        assert!(price <= ticket.original_price, EPriceExceedsOriginal);
-        
-        kiosk::place(kiosk, cap, ticket);
     }
 
     // ==================== Getter Functions ====================
@@ -635,7 +675,8 @@ module dynamic_ticketing::dynamic_ticket {
             event_time,
             original_price: price,
             total_tickets,
-            sold_tickets: 0,
+            minted_tickets: 0,
+            active_tickets: 0,
             venue: string::utf8(b"Test Venue"),
             description: string::utf8(b"Test Description"),
         };
@@ -655,6 +696,13 @@ module dynamic_ticketing::dynamic_ticket {
             deposits: table::new(ctx),
         };
         transfer::share_object(deposit_escrow);
+        
+        let treasury = EventTreasury {
+            id: object::new(ctx),
+            event_id,
+            balance: coin::zero(ctx),
+        };
+        transfer::share_object(treasury);
         
         event_id
     }
@@ -711,15 +759,18 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, buyer);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
-            assert!(event.sold_tickets == 1, 0);
+            assert!(event.minted_tickets == 1, 0);
+            assert!(event.active_tickets == 1, 1);
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         ts::next_tx(&mut scenario, buyer);
@@ -747,13 +798,15 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, buyer);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         // Check-in ticket
@@ -795,13 +848,15 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, buyer);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         ts::next_tx(&mut scenario, organizer);
@@ -890,13 +945,15 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, seller);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         // Buyer joins waitlist
@@ -976,41 +1033,6 @@ module dynamic_ticketing::dynamic_ticket {
     }
 
     #[test]
-    #[expected_failure(abort_code = EPriceExceedsOriginal)]
-    fun test_kiosk_price_cap_enforcement() {
-        let owner = @0xA;
-        let mut scenario = ts::begin(owner);
-        
-        {
-            let ctx = ts::ctx(&mut scenario);
-            init_for_testing(ctx);
-        };
-        
-        ts::next_tx(&mut scenario, owner);
-        {
-            let (mut kiosk, cap) = kiosk::new(ts::ctx(&mut scenario));
-            
-            // Create a ticket with original price 2 SUI
-            let ticket = Ticket {
-                id: object::new(ts::ctx(&mut scenario)),
-                event_id: object::id_from_address(@0x123),
-                ticket_number: 1,
-                original_price: 2000000000,
-                state: STATE_PENDING,
-                owner,
-            };
-            
-            // Try to list at 3 SUI (higher than original) - should fail
-            list_ticket_in_kiosk(&mut kiosk, &cap, ticket, 3000000000);
-            
-            transfer::public_transfer(cap, owner);
-            transfer::public_share_object(kiosk);
-        };
-        
-        ts::end(scenario);
-    }
-
-    #[test]
     #[expected_failure(abort_code = ECannotSellCheckedInTicket)]
     fun test_cannot_sell_checked_in_ticket() {
         let organizer = @0xA;
@@ -1028,13 +1050,15 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, seller);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         // Check-in ticket
@@ -1101,13 +1125,15 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, seller);
         {
             let mut event = ts::take_shared<EventConfig>(&scenario);
+            let mut treasury = ts::take_shared<EventTreasury>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
             let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            mint_ticket(&mut event, payment, &clock, ts::ctx(&mut scenario));
+            mint_ticket(&mut event, &mut treasury, payment, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(event);
+            ts::return_shared(treasury);
         };
         
         // Try to sell back with empty waitlist - should fail
