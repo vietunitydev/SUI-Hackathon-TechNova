@@ -8,4 +8,8 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  server: {
+    // Fix reload issue on routes - always serve index.html for SPA
+    historyApiFallback: true,
+  },
 })
