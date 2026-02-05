@@ -156,6 +156,23 @@ export class TicketingService {
   }
 
   /**
+   * Rút tiền về ví (dành cho organizer)
+   */
+  async organizerWithdraw(eventConfigId: string, treasuryId: string): Promise<Transaction> {
+    const tx = new Transaction();
+
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::organizer_withdraw`,
+      arguments: [
+        tx.object(eventConfigId),
+        tx.object(treasuryId),
+      ],
+    });
+
+    return tx;
+  }
+
+  /**
    * Tham gia hàng chờ để mua vé resale
    */
   async joinWaitlist(params: JoinWaitlistParams): Promise<Transaction> {
@@ -279,18 +296,24 @@ export class TicketingService {
         id: ticketId,
         options: {
           showContent: true,
+          showOwner: true,
         },
       });
 
       if (object.data?.content?.dataType === 'moveObject') {
         const fields = object.data.content.fields as any;
+        // Get owner from Sui ownership system
+        const owner = object.data.owner && typeof object.data.owner === 'object' && 'AddressOwner' in object.data.owner
+          ? object.data.owner.AddressOwner
+          : '';
+        
         return {
           id: fields.id.id,
           eventId: fields.event_id,
           ticketNumber: parseInt(fields.ticket_number),
           originalPrice: parseInt(fields.original_price),
           state: parseInt(fields.state),
-          owner: fields.owner,
+          owner: owner,
         };
       }
 
@@ -313,6 +336,7 @@ export class TicketingService {
         },
         options: {
           showContent: true,
+          showOwner: true,
         },
       });
 
@@ -320,13 +344,18 @@ export class TicketingService {
       for (const obj of objects.data) {
         if (obj.data?.content?.dataType === 'moveObject') {
           const fields = obj.data.content.fields as any;
+          // Get owner from Sui ownership system
+          const owner = obj.data.owner && typeof obj.data.owner === 'object' && 'AddressOwner' in obj.data.owner
+            ? obj.data.owner.AddressOwner
+            : userAddress; // Fallback to userAddress since this is getUserTickets
+          
           tickets.push({
             id: fields.id.id,
             eventId: fields.event_id,
             ticketNumber: parseInt(fields.ticket_number),
             originalPrice: parseInt(fields.original_price),
             state: parseInt(fields.state),
-            owner: fields.owner,
+            owner: owner,
           });
         }
       }

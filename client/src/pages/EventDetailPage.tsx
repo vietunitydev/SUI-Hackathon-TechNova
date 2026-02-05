@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { EventConfig, Ticket } from '../types/ticket';
 import { TicketState } from '../types/ticket';
 import { ticketingService } from '../services/ticketingService';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 
 interface EventDetailPageProps {
   event: EventConfig | null;
@@ -25,10 +26,13 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
   loading,
   allTickets = [],
 }) => {
+  const account = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const [ticketId, setTicketId] = useState('');
   const [eventTickets, setEventTickets] = useState<TicketInfo[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'tickets'>('overview');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   useEffect(() => {
     if (event) {
@@ -93,9 +97,35 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
     setTicketId('');
   };
 
+  const handleWithdraw = async () => {
+    if (!event.treasuryId || !account?.address) return;
+    
+    setIsWithdrawing(true);
+    try {
+      const tx = await ticketingService.organizerWithdraw(event.id, event.treasuryId);
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: () => {
+            alert('✅ Rút tiền thành công!');
+          },
+          onError: (error: any) => {
+            console.error('Withdraw error:', error);
+            alert('❌ Rút tiền thất bại: ' + error.message);
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Withdraw error:', error);
+      alert('❌ Lỗi khi rút tiền');
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   const checkedInTickets = eventTickets.filter(t => t.state >= 1).length;
-  const soldPercentage = (event.mintedTickets / event.totalTickets) * 100;
-  const revenue = (event.mintedTickets * event.originalPrice) / 1_000_000_000;
+  const soldPercentage = (event.activeTickets / event.totalTickets) * 100;
+  const revenue = (event.activeTickets * event.originalPrice) / 1_000_000_000;
 
   // Statistics data
   const userEventTickets = allTickets.filter(t => t.eventId === event.id);
@@ -105,9 +135,11 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
 
   const stats = [
     { label: 'Tổng vé', value: event.totalTickets, color: '#60a5fa' },
-    { label: 'Đã bán', value: event.mintedTickets, color: '#34d399' },
-    { label: 'Còn lại', value: event.totalTickets - event.mintedTickets, color: '#fbbf24' },
-    { label: 'Check-in', value: checkedInTickets, color: '#f472b6' },
+    { label: 'Đang hoạt động', value: event.activeTickets, color: '#34d399' },
+    { label: 'Còn lại', value: event.totalTickets - event.activeTickets, color: '#fbbf24' },
+    { label: 'Đã mint (all-time)', value: event.mintedTickets, color: '#a78bfa' },
+    { label: 'Đã refund', value: event.mintedTickets - event.activeTickets, color: '#f472b6' },
+    { label: 'Check-in', value: checkedInTickets, color: '#f59e0b' },
   ];
 
   const ticketStates = [
@@ -250,7 +282,11 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
               </div>
             </div>
             <div style={{ marginTop: '12px', color: '#94a3b8', fontSize: '14px' }}>
-              {event.mintedTickets} / {event.totalTickets} vé đã bán
+              {event.activeTickets} / {event.totalTickets} vé đang hoạt động ({soldPercentage.toFixed(1)}%)
+              <br />
+              <span style={{ fontSize: '13px', color: '#64748b' }}>
+                (Đã mint: {event.mintedTickets}, Đã refund: {event.mintedTickets - event.activeTickets})
+              </span>
             </div>
           </div>
 
@@ -263,6 +299,63 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
               {revenue.toFixed(2)} SUI
             </div>
           </div>
+
+          {/* Organizer Withdraw Button */}
+          {account?.address === event.organizer && 
+           event.treasuryId && 
+           new Date(event.eventTime) < new Date() && (
+            <div
+              className="card"
+              style={{
+                marginTop: '24px',
+                background: 'linear-gradient(135deg, #22c55e15 0%, #22c55e05 100%)',
+                border: '1px solid #22c55e40',
+              }}
+            >
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ color: '#22c55e', fontWeight: '700', fontSize: '18px', marginBottom: '8px' }}>
+                  💰 Rút tiền về ví
+                </div>
+                <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>
+                  Sự kiện đã kết thúc. Bạn có thể rút toàn bộ doanh thu về ví của mình.
+                </div>
+                <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '600' }}>
+                  Doanh thu: {revenue.toFixed(2)} SUI
+                </div>
+              </div>
+              <button
+                onClick={handleWithdraw}
+                disabled={isWithdrawing || loading}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  background: isWithdrawing 
+                    ? 'rgba(148, 163, 184, 0.5)' 
+                    : 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'white',
+                  cursor: isWithdrawing || loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isWithdrawing && !loading) {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(34, 197, 94, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(34, 197, 94, 0.3)';
+                }}
+              >
+                {isWithdrawing ? '⏳ Đang rút tiền...' : '💸 Rút tiền ngay'}
+              </button>
+            </div>
+          )}
 
           {userEventTickets.length > 0 && (
             <div style={{ marginTop: '24px' }}>
@@ -427,7 +520,7 @@ export const EventDetailPage: React.FC<EventDetailPageProps> = ({
                           #{ticket.ticketNumber}
                         </td>
                         <td style={{ padding: '16px 12px', color: '#94a3b8', fontSize: '13px', fontFamily: 'monospace' }}>
-                          {ticket.owner.slice(0, 6)}...{ticket.owner.slice(-4)}
+                          {ticket.owner ? `${ticket.owner.slice(0, 6)}...${ticket.owner.slice(-4)}` : 'N/A'}
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <span
