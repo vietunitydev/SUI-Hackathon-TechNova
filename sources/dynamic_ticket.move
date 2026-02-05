@@ -1,5 +1,3 @@
-/// Dynamic Ticketing System với Anti-Scalping
-/// Sử dụng Sui Kiosk và Dynamic Fields để tạo vé NFT có thể thay đổi trạng thái
 module dynamic_ticketing::dynamic_ticket {
     use sui::object::{Self, UID, ID};
     use sui::transfer;
@@ -14,6 +12,7 @@ module dynamic_ticketing::dynamic_ticket {
     use sui::display;
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
+    use sui::table::{Self, Table};
 
     // ==================== Errors ====================
     const ENotEventOrganizer: u64 = 0;
@@ -50,12 +49,18 @@ module dynamic_ticketing::dynamic_ticket {
         description: String,
     }
 
-    /// Waiting List - Hàng chờ để mua vé resale
-    /// Đây là KEY để phá vỡ phe vé!
+    /// Waiting List - Hàng chờ để mua vé resale với escrow deposit
     public struct WaitingList has key, store {
         id: UID,
         event_id: ID,
         queue: vector<address>,   // Danh sách người chờ (FIFO)
+    }
+
+    /// Deposit Escrow - Lưu trữ tiền deposit của users trong waitlist
+    public struct DepositEscrow has key, store {
+        id: UID,
+        event_id: ID,
+        deposits: table::Table<address, Coin<SUI>>,  // address -> deposited coin
     }
 
     /// Dynamic Ticket NFT
@@ -188,13 +193,18 @@ module dynamic_ticketing::dynamic_ticket {
             queue: vector::empty(),
         };
 
+        // Tạo DepositEscrow để lưu deposits
+        let deposit_escrow = DepositEscrow {
+            id: object::new(ctx),
+            event_id,
+            deposits: table::new(ctx),
+        };
+
         transfer::share_object(event_config);
         transfer::share_object(waitlist);
+        transfer::share_object(deposit_escrow);
     }
 
-    // ==================== Ticket Minting với Kiosk ====================
-    
-    /// Mint vé mới và đặt vào Kiosk với policy chống scalping
     public entry fun mint_ticket(
         event_config: &mut EventConfig,
         payment: Coin<SUI>,
@@ -253,7 +263,6 @@ module dynamic_ticketing::dynamic_ticket {
     // ==================== Check-in Logic ====================
     
     /// Check-in vé tại sự kiện - chuyển state sang CHECKED_IN
-    /// Có thể được gọi bởi: organizer (check-in cho người khác) hoặc ticket owner (self check-in)
     public entry fun check_in_ticket(
         ticket: &mut Ticket,
         event_config: &EventConfig,
@@ -394,13 +403,15 @@ module dynamic_ticketing::dynamic_ticket {
         });
     }
 
-    // ==================== WAITLIST & RESALE SYSTEM ====================
-    // ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT - PHÁ VỠ PHA VÉ!
+    // ==================== WAITLIST & RESALE SYSTEM WITH ESCROW ====================
     
-    /// Tham gia hàng chờ để mua vé resale
-    /// User không biết mình sẽ mua từ ai, scalper không biết bán cho ai
+    /// Tham gia hàng chờ với deposit trước
+    /// User deposit tiền, nếu không mua được vé sẽ tự động refund sau event
     public entry fun join_waitlist(
         waitlist: &mut WaitingList,
+        deposit_escrow: &mut DepositEscrow,
+        event_config: &EventConfig,
+        payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
         let user = tx_context::sender(ctx);
@@ -408,8 +419,14 @@ module dynamic_ticketing::dynamic_ticket {
         // Kiểm tra user chưa trong waitlist
         assert!(!vector::contains(&waitlist.queue, &user), EAlreadyInWaitlist);
         
+        // Kiểm tra payment đủ tiền (phải = original_price)
+        assert!(coin::value(&payment) >= event_config.original_price, EInvalidPrice);
+        
         // Thêm vào cuối hàng chờ
         vector::push_back(&mut waitlist.queue, user);
+        
+        // Lưu deposit vào escrow
+        table::add(&mut deposit_escrow.deposits, user, payment);
         
         event::emit(JoinedWaitlist {
             event_id: waitlist.event_id,
@@ -418,20 +435,19 @@ module dynamic_ticketing::dynamic_ticket {
         });
     }
 
-    /// Bán vé lại cho HỆ THỐNG (không phải cho người cụ thể!)
-    /// Hệ thống tự động chuyển cho người đầu hàng chờ
-    /// => Scalper KHÔNG THỂ chỉ định người mua!
+    /// Bán vé lại cho HỆ THỐNG - sử dụng deposit đã có sẵn
+    /// Buyer deposit trước → Seller nhận deposit → Buyer nhận vé
     public entry fun sell_back_ticket(
         mut ticket: Ticket,
         waitlist: &mut WaitingList,
+        deposit_escrow: &mut DepositEscrow,
         event_config: &EventConfig,
-        mut payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let seller = tx_context::sender(ctx);
         
-        // Kiểm tra: Chỉ vé PENDING mới bán được (vé đã check-in không bán lại)
+        // Kiểm tra: Chỉ vé PENDING mới bán được
         assert!(ticket.state == STATE_PENDING, ECannotSellCheckedInTicket);
         
         // Kiểm tra: Phải có người trong hàng chờ
@@ -444,22 +460,17 @@ module dynamic_ticketing::dynamic_ticket {
         // Lấy người ĐẦU TIÊN trong hàng chờ (FIFO)
         let buyer = vector::remove(&mut waitlist.queue, 0);
         
-        // Hoàn tiền cho SELLER (giá gốc)
-        let refund_amount = ticket.original_price;
-        let refund = coin::split(&mut payment, refund_amount, ctx);
-        transfer::public_transfer(refund, seller);
+        // Lấy deposit của buyer từ escrow
+        let buyer_payment = table::remove(&mut deposit_escrow.deposits, buyer);
         
-        // Chuyển tiền thừa (nếu có) về người gửi
-        if (coin::value(&payment) > 0) {
-            transfer::public_transfer(payment, tx_context::sender(ctx));
-        } else {
-            coin::destroy_zero(payment);
-        };
+        // Transfer payment cho SELLER
+        transfer::public_transfer(buyer_payment, seller);
         
         // Cập nhật owner của ticket
+        ticket.owner = buyer;
         let ticket_id = object::uid_to_inner(&ticket.id);
         
-        // Cập nhật metadata để track lịch sử
+        // Cập nhật metadata
         let metadata = df::borrow_mut<TicketStateKey, TicketMetadata>(
             &mut ticket.id,
             TicketStateKey {}
@@ -475,22 +486,53 @@ module dynamic_ticketing::dynamic_ticket {
             timestamp: current_time,
         });
         
-        // QUAN TRỌNG: Transfer vé cho BUYER (người đầu hàng chờ)
-        // Seller KHÔNG THỂ chọn buyer!
+        // Transfer vé cho BUYER
         transfer::public_transfer(ticket, buyer);
     }
 
-    /// Leave waitlist nếu không muốn chờ nữa
+    /// Leave waitlist và lấy lại deposit
     public entry fun leave_waitlist(
         waitlist: &mut WaitingList,
-        ctx: &TxContext
+        deposit_escrow: &mut DepositEscrow,
+        ctx: &mut TxContext
     ) {
         let user = tx_context::sender(ctx);
         let (exists, index) = vector::index_of(&waitlist.queue, &user);
         
         if (exists) {
             vector::remove(&mut waitlist.queue, index);
+            
+            // Trả lại deposit
+            if (table::contains(&deposit_escrow.deposits, user)) {
+                let refund = table::remove(&mut deposit_escrow.deposits, user);
+                transfer::public_transfer(refund, user);
+            };
         };
+    }
+
+    /// Claim refund sau khi event kết thúc (nếu vẫn còn trong waitlist)
+    public entry fun claim_waitlist_refund(
+        waitlist: &WaitingList,
+        deposit_escrow: &mut DepositEscrow,
+        event_config: &EventConfig,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let user = tx_context::sender(ctx);
+        
+        // Kiểm tra event đã kết thúc
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time > event_config.event_time, EEventNotStarted);
+        
+        // Kiểm tra user vẫn trong waitlist (không mua được vé)
+        assert!(vector::contains(&waitlist.queue, &user), ENotTicketOwner);
+        
+        // Kiểm tra có deposit
+        assert!(table::contains(&deposit_escrow.deposits, user), EInvalidPrice);
+        
+        // Refund deposit
+        let refund = table::remove(&mut deposit_escrow.deposits, user);
+        transfer::public_transfer(refund, user);
     }
 
     // ==================== Kiosk Anti-Scalping ====================
@@ -563,7 +605,7 @@ module dynamic_ticketing::dynamic_ticket {
     // ==================== Helper Functions ====================
     
     fun generate_qr_code(_ticket_id: &ID): String {
-        // Trong production, sẽ generate QR code thực sự
+        // tạm thời fake qr
         string::utf8(b"QR_CODE_")
     }
 
@@ -606,6 +648,13 @@ module dynamic_ticketing::dynamic_ticket {
             queue: vector::empty(),
         };
         transfer::share_object(waitlist);
+        
+        let deposit_escrow = DepositEscrow {
+            id: object::new(ctx),
+            event_id,
+            deposits: table::new(ctx),
+        };
+        transfer::share_object(deposit_escrow);
         
         event_id
     }
@@ -804,15 +853,20 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, user);
         {
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
+            let event = ts::take_shared<EventConfig>(&scenario);
+            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
             assert!(vector::length(&waitlist.queue) == 0, 0);
             
-            join_waitlist(&mut waitlist, ts::ctx(&mut scenario));
+            join_waitlist(&mut waitlist, &mut deposit_escrow, &event, payment, ts::ctx(&mut scenario));
             
             assert!(vector::length(&waitlist.queue) == 1, 1);
             assert!(vector::contains(&waitlist.queue, &user), 2);
             
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
+            ts::return_shared(event);
         };
         
         ts::end(scenario);
@@ -849,8 +903,13 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, buyer);
         {
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
-            join_waitlist(&mut waitlist, ts::ctx(&mut scenario));
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
+            let event = ts::take_shared<EventConfig>(&scenario);
+            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
+            join_waitlist(&mut waitlist, &mut deposit_escrow, &event, payment, ts::ctx(&mut scenario));
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
+            ts::return_shared(event);
         };
         
         // Seller sells back ticket
@@ -858,19 +917,20 @@ module dynamic_ticketing::dynamic_ticket {
         {
             let ticket = ts::take_from_address<Ticket>(&scenario, seller);
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
             let event = ts::take_shared<EventConfig>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
-            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
             assert!(vector::length(&waitlist.queue) == 1, 0);
             
-            sell_back_ticket(ticket, &mut waitlist, &event, payment, &clock, ts::ctx(&mut scenario));
+            sell_back_ticket(ticket, &mut waitlist, &mut deposit_escrow, &event, &clock, ts::ctx(&mut scenario));
             
             // Waitlist should be empty now
             assert!(vector::length(&waitlist.queue) == 0, 1);
             
             clock::destroy_for_testing(clock);
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
             ts::return_shared(event);
         };
         
@@ -899,11 +959,17 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, user);
         {
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
+            let event = ts::take_shared<EventConfig>(&scenario);
+            let payment1 = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
+            let payment2 = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            join_waitlist(&mut waitlist, ts::ctx(&mut scenario));
-            join_waitlist(&mut waitlist, ts::ctx(&mut scenario)); // Should fail
+            join_waitlist(&mut waitlist, &mut deposit_escrow, &event, payment1, ts::ctx(&mut scenario));
+            join_waitlist(&mut waitlist, &mut deposit_escrow, &event, payment2, ts::ctx(&mut scenario)); // Should fail
             
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
+            ts::return_shared(event);
         };
         
         ts::end(scenario);
@@ -989,8 +1055,13 @@ module dynamic_ticketing::dynamic_ticket {
         ts::next_tx(&mut scenario, buyer);
         {
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
-            join_waitlist(&mut waitlist, ts::ctx(&mut scenario));
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
+            let event = ts::take_shared<EventConfig>(&scenario);
+            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
+            join_waitlist(&mut waitlist, &mut deposit_escrow, &event, payment, ts::ctx(&mut scenario));
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
+            ts::return_shared(event);
         };
         
         // Try to sell checked-in ticket - should fail
@@ -998,14 +1069,15 @@ module dynamic_ticketing::dynamic_ticket {
         {
             let ticket = ts::take_from_address<Ticket>(&scenario, seller);
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
             let event = ts::take_shared<EventConfig>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
-            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            sell_back_ticket(ticket, &mut waitlist, &event, payment, &clock, ts::ctx(&mut scenario));
+            sell_back_ticket(ticket, &mut waitlist, &mut deposit_escrow, &event, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
             ts::return_shared(event);
         };
         
@@ -1043,14 +1115,15 @@ module dynamic_ticketing::dynamic_ticket {
         {
             let ticket = ts::take_from_address<Ticket>(&scenario, seller);
             let mut waitlist = ts::take_shared<WaitingList>(&scenario);
+            let mut deposit_escrow = ts::take_shared<DepositEscrow>(&scenario);
             let event = ts::take_shared<EventConfig>(&scenario);
             let clock = clock::create_for_testing(ts::ctx(&mut scenario));
-            let payment = coin::mint_for_testing<SUI>(2000000000, ts::ctx(&mut scenario));
             
-            sell_back_ticket(ticket, &mut waitlist, &event, payment, &clock, ts::ctx(&mut scenario));
+            sell_back_ticket(ticket, &mut waitlist, &mut deposit_escrow, &event, &clock, ts::ctx(&mut scenario));
             
             clock::destroy_for_testing(clock);
             ts::return_shared(waitlist);
+            ts::return_shared(deposit_escrow);
             ts::return_shared(event);
         };
         

@@ -21,10 +21,12 @@ Hệ thống bán vé NFT động trên Sui Blockchain với cơ chế chống p
 
 ### 1. Anti-Scalping Protection
 
-Cơ chế chống phe vé được tích hợp trực tiếp trong smart contract:
-- **Original Price Enforcement**: Mỗi vé lưu giá gốc (original_price), không thể bán lại với giá cao hơn
-- **Refund Logic**: Nếu vé được chuyển nhượng, buyer chỉ trả giá gốc, phần chênh lệch refund về seller
-- **On-chain Verification**: Kiểm tra giá trong `transfer_ticket()` function trước khi cho phép giao dịch
+Cơ chế chống phe vé được tích hợp trực tiếp trong smart contract với **Waitlist Marketplace System**:
+- **No Direct Transfer**: Không cho phép 2 người chuyển vé trực tiếp cho nhau
+- **Waitlist Queue (FIFO)**: Người muốn mua phải vào hàng chờ, được xếp hàng công bằng
+- **System-Controlled**: Hệ thống tự động ghép người bán với người ĐẦU TIÊN trong hàng chờ
+- **Fixed Price**: Giá luôn cố định = original_price, seller không thể định giá
+- **Seller Cannot Choose Buyer**: Người bán không thể chỉ định người mua để thao túng giá
 
 ### 2. Dynamic Ticket States
 
@@ -169,7 +171,9 @@ Giao diện web được xây dựng với React Router DOM v7 với 6 routes ch
 │  │  │  • mint_ticket()                             │     │   │
 │  │  │  • check_in_ticket()                         │     │   │
 │  │  │  • transform_to_commemorative()              │     │   │
-│  │  │  • transfer_ticket()  // Anti-scalping       │     │   │
+│  │  │  • join_waitlist()                           │     │   │
+│  │  │  • sell_back_ticket()  // Marketplace       │     │   │
+│  │  │  • cancel_event()      // Refund all        │     │   │
 │  │  └──────────────────────────────────────────────┘     │   │
 │  │                                                         │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -242,24 +246,28 @@ Organizer → Event Detail → Check-in Tab → Enter Ticket ID
 
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                  ANTI-SCALPING FLOW                             │
+│              WAITLIST MARKETPLACE FLOW                          │
 └─────────────────────────────────────────────────────────────────┘
 
-Seller → Want to transfer ticket with price > original_price
+Buyer B, C, D → join_waitlist() → Added to FIFO queue
                                     ↓
-                    transfer_ticket(payment: Coin<SUI>)
+                    Waitlist: [B, C, D] (positions locked)
+                                    ↓
+Seller A → sell_back_ticket(ticket, waitlist, payment)
                                     ↓
                     ┌───────────────┴───────────────┐
                     │   Smart Contract Logic        │
-                    │   if payment > original_price │
-                    │      refund = payment - orig  │
-                    │      return refund to buyer   │
-                    │   transfer original_price     │
-                    │   to seller                   │
+                    │   • Check ticket is PENDING   │
+                    │   • Check waitlist not empty  │
+                    │   • Pop first: buyer = B      │
+                    │   • Refund seller: 10 SUI     │
+                    │   • Transfer ticket to B      │
                     └───────────────┬───────────────┘
                                     ↓
-                    Buyer only pays original price!
-                    (Anti-scalping enforced)
+                    ✅ Buyer B gets ticket at original price
+                    ✅ Seller cannot choose buyer
+                    ✅ FIFO ensures fairness
+                    (Anti-scalping + Anti-manipulation)
 ```
 
 ### Technology Stack Overview
@@ -345,33 +353,52 @@ public entry fun check_in_ticket(
 // Transform vé thành POAP sau sự kiện
 public entry fun transform_to_commemorative(
     ticket: &mut Ticket,
-    event: &Event,
+    event: &EventConfig,
     clock: &Clock
 )
 
-// Chuyển nhượng vé với kiểm tra anti-scalping
-public entry fun transfer_ticket(
+// Tham gia hàng chờ để mua vé resale
+public entry fun join_waitlist(
+    waitlist: &mut WaitingList,
+    ctx: &TxContext
+)
+
+// Bán vé lại qua hệ thống (không chọn được buyer)
+public entry fun sell_back_ticket(
     ticket: Ticket,
-    recipient: address,
+    waitlist: &mut WaitingList,
+    event_config: &EventConfig,
     payment: Coin<SUI>,
+    clock: &Clock,
     ctx: &mut TxContext
+)
+
+// Hủy event và refund tất cả vé
+public entry fun cancel_event(
+    event: EventConfig,
+    clock: &Clock,
+    ctx: &TxContext
 )
 ```
 
-**Anti-Scalping Logic trong `transfer_ticket()`**:
+**Anti-Scalping Logic trong `sell_back_ticket()`**:
 ```move
-let paid_amount = coin::value(&payment);
-let original_price = ticket.original_price;
+// Kiểm tra: Chỉ vé PENDING mới bán được
+assert!(ticket.state == STATE_PENDING, ECannotSellCheckedInTicket);
 
-if (paid_amount > original_price) {
-    // Refund overpayment
-    let refund_amount = paid_amount - original_price;
-    let refund_coin = coin::split(&mut payment, refund_amount, ctx);
-    transfer::public_transfer(refund_coin, sender);
-};
+// Kiểm tra: Phải có người trong hàng chờ
+assert!(vector::length(&waitlist.queue) > 0, EWaitlistEmpty);
 
-// Transfer only original_price to seller
-transfer::public_transfer(payment, sender);
+// Lấy người ĐẦU TIÊN trong hàng chờ (FIFO)
+let buyer = vector::remove(&mut waitlist.queue, 0);
+
+// Hoàn tiền cho SELLER (giá gốc)
+let refund_amount = ticket.original_price;
+let refund = coin::split(&mut payment, refund_amount, ctx);
+transfer::public_transfer(refund, seller);
+
+// Transfer vé cho BUYER (hệ thống quyết định, không phải seller)
+transfer::public_transfer(ticket, buyer);
 ```
 
 ### Frontend (React + TypeScript)
@@ -483,15 +510,29 @@ Cập nhật `PACKAGE_ID` trong `web/src/config.ts` với package ID mới.
 
 ## Anti-Scalping Demonstration
 
-**Scenario**: User A mua vé giá 100 SUI, sau đó muốn bán lại cho User B với giá 150 SUI
+**Scenario**: User A mua vé giá 10 SUI, sau đó muốn bán lại
 
-**Kết quả**:
-- Smart contract detect giá 150 > original_price (100)
-- Tự động refund 50 SUI về cho User B
-- User A chỉ nhận 100 SUI (giá gốc)
-- User B chỉ mất 100 SUI (giá gốc)
+**Flow qua hệ thống Waitlist:**
 
-**On-chain enforcement**: Không thể bán vé cao hơn giá gốc.
+1. **User B, C, D muốn mua vé resale:**
+   - User B → `join_waitlist()` → Vị trí #1 trong queue
+   - User C → `join_waitlist()` → Vị trí #2 trong queue
+   - User D → `join_waitlist()` → Vị trí #3 trong queue
+
+2. **User A quyết định bán vé:**
+   - User A gọi `sell_back_ticket(ticket, waitlist, payment)`
+   - ❌ User A KHÔNG thể chọn bán cho User D (người quen) với giá cao
+   - ✅ Hệ thống TỰ ĐỘNG lấy User B (người đầu hàng chờ)
+   - User A nhận lại đúng 10 SUI (original_price)
+   - User B nhận được vé
+
+3. **Kết quả:**
+   - ✅ Giá cố định: 10 SUI (không thể thay đổi)
+   - ✅ FIFO queue: Công bằng cho người chờ lâu nhất
+   - ✅ Phá vỡ thao túng: Seller không thể chọn buyer
+   - ✅ Không phe vé: Scalper không kiếm lời được
+
+**On-chain enforcement**: Hệ thống kiểm soát 100% mọi giao dịch.
 
 ## Demo Flow
 
@@ -519,15 +560,17 @@ Cập nhật `PACKAGE_ID` trong `web/src/config.ts` với package ID mới.
 
 ### Anti-Scalping Demo
 
-1. **Buyer B muốn mua vé từ Buyer A**
-   - Buyer A offer bán 1 vé với giá 15 SUI (cao hơn gốc 10 SUI)
+1. **Nhiều người muốn mua vé resale**
+   - Buyer B join waitlist → Position #1
+   - Buyer C join waitlist → Position #2
+   - Buyer D join waitlist → Position #3
    
-2. **Transfer transaction**
-   - Smart contract nhận payment 15 SUI
-   - Phát hiện: 15 > original_price (10)
-   - **Refund**: 5 SUI về Buyer B
-   - **Transfer**: 10 SUI đến Buyer A
-   - Buyer B chỉ mất 10 SUI, không bị chém
+2. **Buyer A bán lại vé qua hệ thống**
+   - Buyer A gọi `sell_back_ticket()`
+   - Hệ thống tự động lấy Buyer B (đầu hàng chờ)
+   - Buyer A nhận 10 SUI (giá gốc)
+   - Buyer B nhận vé, trả 10 SUI
+   - ❌ Buyer A KHÔNG thể bán riêng cho Buyer D với giá cao
 
 ## Tech Highlights
 
